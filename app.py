@@ -4,7 +4,7 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -20,48 +20,50 @@ CONFIG_PATH = Path('models/config.json')
 LOG_PATH = Path('logs/decisions.jsonl')
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+LOG_RETENTION_HOURS = 24
+
 
 CLASS_INFO = {
     'No_Failure': {
         'rus': 'Нет отказа',
         'auto_action': 'Продолжать работу. Параметры станка в норме',
-        'review_action': 'Оператор проверяет станок: отказ не обнаружен, но уверенность модели невысокая',
-        'manual_action': 'Оператор проверяет станок вручную: модель недостаточно уверена',
+        'review_action': 'Проверить станок: отказ не обнаружен, но уверенность модели невысокая',
+        'manual_action': 'Проверить станок вручную: модель недостаточно уверена',
         'color': '#2ECC71',
     },
     'Heat_Dissipation_Failure': {
         'rus': 'Перегрев',
-        'auto_action': 'Оператор останавливает станок и проверяет теплоотвод',
-        'review_action': 'Оператор проверяет систему охлаждения и теплоотвод',
-        'manual_action': 'Оператор вручную проверяет возможный перегрев',
+        'auto_action': 'Остановить станок, проверить теплоотвод',
+        'review_action': 'Проверить систему охлаждения и теплоотвод',
+        'manual_action': 'Вручную проверить возможный перегрев',
         'color': '#E74C3C',
     },
     'Power_Failure': {
         'rus': 'Отказ по мощности',
-        'auto_action': 'Оператор проверяет режим мощности и нагрузку станка',
-        'review_action': 'Оператор проверяет параметры мощности',
-        'manual_action': 'Оператор вручную проверяет возможный отказ по мощности',
+        'auto_action': 'Проверить режим мощности и нагрузку станка',
+        'review_action': 'Проверить параметры мощности',
+        'manual_action': 'Вручную проверить возможный отказ по мощности',
         'color': '#F39C12',
     },
     'Overstrain_Failure': {
         'rus': 'Перегрузка по моменту',
-        'auto_action': 'Оператор снижает нагрузку и проверяет режим резания',
-        'review_action': 'Оператор проверяет возможную перегрузку по моменту',
-        'manual_action': 'Оператор вручную проверяет перегрузку по моменту',
+        'auto_action': 'Снизить нагрузку и проверить режим резания',
+        'review_action': 'Проверить возможную перегрузку по моменту',
+        'manual_action': 'Вручную проверить перегрузку по моменту',
         'color': '#9B59B6',
     },
     'Tool_Wear_Failure': {
         'rus': 'Износ инструмента',
-        'auto_action': 'Оператор проверяет состояние инструмента',
-        'review_action': 'Оператор проверяет возможный износ инструмента',
-        'manual_action': 'Оператор вручную проверяет износ инструмента',
+        'auto_action': 'Проверить состояние инструмента',
+        'review_action': 'Проверить возможный износ',
+        'manual_action': 'Вручную проверить износ инструмента',
         'color': '#3498DB',
     },
     'Random_Failures': {
         'rus': 'Случайный отказ',
-        'auto_action': 'Оператор фиксирует случайный отказ и осматривает станок',
-        'review_action': 'Оператор проверяет станок: возможен случайный отказ',
-        'manual_action': 'Оператор вручную осматривает станок на случайный отказ',
+        'auto_action': 'Зафиксировать случайный отказ, осмотреть станок',
+        'review_action': 'Проверить станок: возможен случайный отказ',
+        'manual_action': 'Вручную осмотреть станок на случайный отказ',
         'color': '#95A5A6',
     },
 }
@@ -507,7 +509,59 @@ def step8_log(record):
         f.write(json.dumps(record, ensure_ascii=False, default=str) + '\n')
 
 
+def _parse_ts(value):
+    """Безопасно парсит timestamp в datetime, возвращает None при ошибке."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def cleanup_old_records():
+    """Удаляет из журнала записи старше LOG_RETENTION_HOURS.
+
+    Вызывается при каждом чтении журнала. Перезаписывает файл
+    только если что-то реально устарело — чтобы не дёргать диск зря.
+    """
+    if not LOG_PATH.exists():
+        return 0
+
+    cutoff = datetime.now() - timedelta(hours=LOG_RETENTION_HOURS)
+    fresh_records = []
+    removed = 0
+
+    with open(LOG_PATH, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                removed += 1
+                continue
+
+            ts = _parse_ts(record.get('timestamp'))
+
+            if ts is None or ts >= cutoff:
+                fresh_records.append(record)
+            else:
+                removed += 1
+
+    if removed > 0:
+        with open(LOG_PATH, 'w', encoding='utf-8') as f:
+            for record in fresh_records:
+                f.write(json.dumps(record, ensure_ascii=False, default=str) + '\n')
+
+    return removed
+
+
 def read_log():
+    cleanup_old_records()
+
     if not LOG_PATH.exists():
         return []
 
@@ -666,10 +720,58 @@ with st.sidebar:
 
     st.subheader('Стоимость ошибок')
 
-    cost_auto = st.number_input('Ошибка авто-решения', min_value=1, value=20)
-    cost_manual = st.number_input('Ручная проверка', min_value=1, value=3)
+    st.caption(
+        'Эти два числа отвечают на простой вопрос: '
+        '**что для нас дороже — пропустить отказ или зря отвлечь оператора?** '
+        'От ответа зависит, какие пороги выставить.'
+    )
 
-    st.caption('Используется только для пояснения логики порогов.')
+    cost_auto = st.number_input(
+        'Если станок сломался, а контур этого не заметил',
+        min_value=1,
+        value=20,
+        help='Сколько мы условно теряем: простой линии, ремонт, брак деталей. '
+             'Обычно это сильно дороже, чем лишняя проверка.',
+    )
+    cost_manual = st.number_input(
+        'Если оператор зря проверил станок',
+        min_value=1,
+        value=3,
+        help='Сколько мы условно теряем: время оператора, остановка на проверку.',
+    )
+
+    ratio = cost_auto / cost_manual
+
+    if ratio >= 10:
+        rec = 'Ошибка очень дорогая → нужны **строгие** значения (t_high около 0.90–0.95)'
+        rec_color = '#EF4444'
+    elif ratio >= 4:
+        rec = 'Ошибка заметно дороже проверки → **умеренные** значения (t_high около 0.85–0.90)'
+        rec_color = '#F59E0B'
+    else:
+        rec = 'Стоимости близки → можно сделать **мягче** (t_high около 0.75–0.85)'
+        rec_color = '#22C55E'
+
+    st.markdown(
+        f"""
+<div style="
+    background: {rec_color}15;
+    border-left: 3px solid {rec_color};
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #D1D1D6;
+    margin-top: 8px;
+    line-height: 1.5;
+">
+    <div style="color: {rec_color}; font-weight: 600; margin-bottom: 4px;">
+        Соотношение 1 : {ratio:.0f}
+    </div>
+    {rec}
+</div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 st.title('Контур принятия решений для предиктивного обслуживания')
@@ -945,7 +1047,7 @@ with tab_pipeline:
         with st.container(border=True):
             st.markdown('**Шаг 8. Журнал и обратная связь**')
             st.caption(
-                'Решение сохраняется в журнал. Обратная связь помогает потом анализировать ошибки.'
+                'Решение записано. Оценка от оператора поможет потом разбирать ошибки.'
             )
 
             st.caption(f"timestamp: {result['timestamp']}")
@@ -953,7 +1055,7 @@ with tab_pipeline:
             fb1, fb2, _ = st.columns([1, 1, 4])
 
             with fb1:
-                if st.button('Согласен с решением', width='stretch'):
+                if st.button('Согласен', width='stretch'):
                     update_feedback(result['timestamp'], 'agree')
                     st.toast('Сохранено')
 
@@ -965,221 +1067,243 @@ with tab_pipeline:
 
 with tab_thresholds:
     st.subheader('Пороги простыми словами')
-    with tab_thresholds:
-        st.subheader('Пороги простыми словами')
 
-        st.write(
-            'Контур работает просто: модель даёт уверенность, а правила проверяют, '
-            'нет ли опасных параметров.'
+    st.write(
+        'Контур работает просто: модель даёт уверенность, а правила проверяют, '
+        'нет ли опасных параметров.'
+    )
+
+    st.divider()
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        with st.container(border=True):
+            st.markdown('**Ручная проверка**')
+            st.metric('Зона', f'ниже {t_low:.0%}')
+            st.caption('Модель не уверена. Решение принимает оператор.')
+
+    with c2:
+        with st.container(border=True):
+            st.markdown('**Рекомендация**')
+            st.metric('Зона', f'{t_low:.0%}–{t_high:.0%}')
+            st.caption('Модель предлагает действие, оператор подтверждает.')
+
+    with c3:
+        with st.container(border=True):
+            st.markdown('**Авто-решение**')
+            st.metric('Зона', f'выше {t_high:.0%}')
+            st.caption('Можно принять автоматически, если нет признаков риска.')
+
+    st.divider()
+
+    st.subheader('Главное правило безопасности')
+
+    st.info(
+        'Если параметры похожи на отказ, система не разрешает авто-решение '
+        '«продолжать работу». Случай уходит оператору.'
+    )
+
+    st.divider()
+
+    st.subheader('Какие пороги использует контур')
+
+    st.caption(
+        'Пороги сгруппированы по этапам: '
+        'сначала ранние правила, потом проверка по модели, потом физические правила.'
+    )
+
+    st.markdown('##### 1. Ранние правила — срабатывают до модели')
+    st.caption('Очевидные риски: модель в этом случае не вызывается.')
+
+    early_cols = st.columns(2)
+
+    with early_cols[0]:
+        with st.container(border=True):
+            st.markdown('**Износ инструмента**')
+            st.metric('Порог', 'от 190 мин')
+            st.caption('Инструмент работает слишком долго — нужна проверка.')
+
+    with early_cols[1]:
+        with st.container(border=True):
+            st.markdown('**Крутящий момент**')
+            st.metric('Порог', '< 3 Н·м')
+            st.caption('Очень низкое значение может означать ошибку датчика.')
+
+    st.markdown('')
+
+    st.markdown('##### 2. Правила по выходу модели — проверка вероятностей')
+    st.caption('Анализ уверенности и распределения классов.')
+
+    model_cols_1 = st.columns(2)
+
+    with model_cols_1[0]:
+        with st.container(border=True):
+            st.markdown('**Авто-решение**')
+            st.metric('Порог уверенности', f'от {t_high:.0%}')
+            st.caption('Разрешено только если нет признаков риска.')
+
+    with model_cols_1[1]:
+        with st.container(border=True):
+            st.markdown('**Сомнение модели**')
+            st.metric('Порог', 'разница < 15%')
+            st.caption('Если два главных класса слишком близки — решает оператор.')
+
+    model_cols_2 = st.columns(2)
+
+    with model_cols_2[0]:
+        with st.container(border=True):
+            st.markdown('**Риск износа по модели**')
+            st.metric('Порог', '> 5%')
+            st.caption('Даже небольшой риск износа отправляет случай на проверку.')
+
+    with model_cols_2[1]:
+        with st.container(border=True):
+            st.markdown('**Скрытый риск отказа**')
+            st.metric('Порог', '> 5%')
+            st.caption('Модель выбрала «нет отказа», но сумма рисков отказов выше 5%.')
+
+    st.markdown('')
+
+    st.markdown('##### 3. Физические правила — сравнение с физикой процесса')
+    st.caption('Параметры станка сравниваются с признаками отказов.')
+
+    phys_cols_1 = st.columns(2)
+
+    with phys_cols_1[0]:
+        with st.container(border=True):
+            st.markdown('**Перегрев**')
+            st.metric('Условие', 'ΔT < 10 K, об/мин < 1500, тип L')
+            st.caption('Малая разница температур при низких оборотах и типе L.')
+
+    with phys_cols_1[1]:
+        with st.container(border=True):
+            st.markdown('**Мощность**')
+            st.metric('Безопасная зона', '4000–8500 Вт')
+            st.caption('P = 0.10472 · RPM · Torque. Выход из диапазона — проверка.')
+
+    phys_cols_2 = st.columns(2)
+
+    with phys_cols_2[0]:
+        with st.container(border=True):
+            st.markdown('**Перегрузка по моменту**')
+            st.metric('Порог (L / M / H)', '10000 / 11000 / 12000')
+            st.caption('Tool_Wear × Torque. Порог зависит от типа детали.')
+
+    with phys_cols_2[1]:
+        with st.container(border=True):
+            st.markdown('**Износ — предупреждение**')
+            st.metric('Порог', 'от 180 мин')
+            st.caption('Если модель не выбрала износ, контур всё равно проверяет риск.')
+
+    st.divider()
+
+    st.subheader('Зачем нужны эти пороги')
+
+    st.write(
+        'Если сделать пороги строже, оператор будет проверять больше случаев. '
+        'Если сделать мягче, автоматических решений станет больше, но риск ошибки вырастет.'
+    )
+
+    expected_cost_per_check = cost_manual
+    expected_cost_per_miss = cost_auto
+
+    st.markdown(
+        f"""
+**Как сейчас настроены стоимости (из боковой панели):**
+
+- одна ошибка авто-решения «стоит» как **{expected_cost_per_miss / expected_cost_per_check:.0f} ручных проверок**
+- значит, выгодно отправлять случай оператору, если **риск ошибки** модели выше, чем {1 / (expected_cost_per_miss / expected_cost_per_check):.1%}
+- именно поэтому порог авто-решения стоит **высоким** — {t_high:.0%}: модель должна быть очень уверена, чтобы заменить оператора
+        """
+    )
+
+
+with tab_monitoring:
+    st.subheader('Состояние контура')
+
+    st.caption(
+        f'Здесь видно, сколько решений прошло через систему и как часто нужен оператор. '
+        f'Журнал хранится последние {LOG_RETENTION_HOURS} часов — более старые записи '
+        f'удаляются автоматически.'
+    )
+
+    records = read_log()
+
+    if not records:
+        st.info('Журнал пуст. Запустите контур.')
+    else:
+        df_log = pd.DataFrame([
+            {
+                'time': record.get('timestamp'),
+                'expected_class': record.get('expected_class'),
+                'prediction': record.get('prediction'),
+                'confidence': record.get('confidence'),
+                'zone': record.get('zone_final'),
+                'feedback': record.get('feedback'),
+            }
+            for record in records
+        ])
+
+        total = len(df_log)
+        with_fb = int(df_log['feedback'].notna().sum())
+        avg_conf = df_log['confidence'].dropna().mean()
+        zone_counts = df_log['zone'].value_counts()
+        manual_share = zone_counts.get('manual_review', 0) / total
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric('Всего решений', total)
+        c2.metric('С обратной связью', f'{with_fb} ({100 * with_fb / total:.0f}%)')
+        c3.metric(
+            'Средняя уверенность',
+            f'{avg_conf:.3f}' if pd.notna(avg_conf) else '-',
         )
+        c4.metric('Доля ручной проверки', f'{100 * manual_share:.0f}%')
 
         st.divider()
 
-        c1, c2, c3 = st.columns(3)
+        st.markdown('**Health-check контура**')
 
-        with c1:
-            with st.container(border=True):
-                st.markdown('**Ручная проверка**')
-                st.metric('Зона', f'ниже {t_low:.0%}')
-                st.caption('Модель не уверена. Решение принимает оператор.')
-
-        with c2:
-            with st.container(border=True):
-                st.markdown('**Рекомендация**')
-                st.metric('Зона', f'{t_low:.0%}–{t_high:.0%}')
-                st.caption('Модель предлагает действие, оператор подтверждает.')
-
-        with c3:
-            with st.container(border=True):
-                st.markdown('**Авто-решение**')
-                st.metric('Зона', f'выше {t_high:.0%}')
-                st.caption('Можно принять автоматически, если нет признаков риска.')
-
-        st.divider()
-
-        st.subheader('Главное правило безопасности')
-
-        st.info(
-            'Если параметры похожи на отказ, система не разрешает авто-решение '
-            '«продолжать работу». Случай уходит оператору.'
-        )
-
-        st.subheader('Какие пороги использует контур')
-
-        st.caption(
-            'Если значение выходит за один из этих порогов, система не принимает решение вслепую '
-            'и отправляет случай оператору.'
-        )
-
-        risk_cols_1 = st.columns(3)
-
-        with risk_cols_1[0]:
-            with st.container(border=True):
-                st.markdown('**Износ инструмента**')
-                st.metric('Порог', 'от 190 мин')
-                st.caption('Если инструмент работает слишком долго, нужна проверка.')
-
-        with risk_cols_1[1]:
-            with st.container(border=True):
-                st.markdown('**Предупреждение по износу**')
-                st.metric('Порог', 'от 180 мин')
-                st.caption('Если модель не выбрала износ, контур всё равно проверяет риск.')
-
-        with risk_cols_1[2]:
-            with st.container(border=True):
-                st.markdown('**Крутящий момент**')
-                st.metric('Порог', '< 3 Н·м')
-                st.caption('Очень низкое значение может означать ошибку датчика.')
-
-        risk_cols_2 = st.columns(3)
-
-        with risk_cols_2[0]:
-            with st.container(border=True):
-                st.markdown('**Перегрев**')
-                st.metric('Порог', 'ΔT < 10 K')
-                st.caption('Риск учитывается при низких оборотах и типе детали L.')
-
-        with risk_cols_2[1]:
-            with st.container(border=True):
-                st.markdown('**Скорость вращения**')
-                st.metric('Порог', '< 1500 об/мин')
-                st.caption('Вместе с малой разницей температур это признак перегрева.')
-
-        with risk_cols_2[2]:
-            with st.container(border=True):
-                st.markdown('**Мощность**')
-                st.metric('Безопасная зона', '4000–8500 Вт')
-                st.caption('Если мощность ниже или выше, нужна проверка режима работы.')
-
-        risk_cols_3 = st.columns(3)
-
-        with risk_cols_3[0]:
-            with st.container(border=True):
-                st.markdown('**Перегрузка**')
-                st.metric('Порог', '10000 / 11000 / 12000')
-                st.caption('Порог зависит от типа детали: L, M или H.')
-
-        with risk_cols_3[1]:
-            with st.container(border=True):
-                st.markdown('**Сомнение модели**')
-                st.metric('Порог', '< 15%')
-                st.caption('Если два главных класса слишком близки, решает оператор.')
-
-        with risk_cols_3[2]:
-            with st.container(border=True):
-                st.markdown('**Риск износа по модели**')
-                st.metric('Порог', '> 5%')
-                st.caption('Даже небольшой риск износа отправляет случай на проверку.')
-
-        risk_cols_4 = st.columns(2)
-
-        with risk_cols_4[0]:
-            with st.container(border=True):
-                st.markdown('**Скрытый риск отказа**')
-                st.metric('Порог', '> 5%')
-                st.caption('Если модель выбрала «нет отказа», но сумма рисков отказов выше 5%, нужна проверка.')
-
-        with risk_cols_4[1]:
-            with st.container(border=True):
-                st.markdown('**Авто-решение**')
-                st.metric('Порог', f'от {t_high:.0%}')
-                st.caption('Авто-решение разрешено только если нет признаков риска.')
-
-        st.divider()
-
-        st.subheader('Зачем нужны эти пороги')
-
-        st.write(
-            'Если сделать пороги строже, оператор будет проверять больше случаев. '
-            'Если сделать мягче, автоматических решений станет больше, но риск ошибки вырастет.'
-        )
-
-        st.caption(
-            f'В этой версии цена ошибки авто-решения: {cost_auto}, '
-            f'цена ручной проверки: {cost_manual}.'
-        )
-
-    with tab_monitoring:
-        st.subheader('Состояние контура')
-
-        st.caption(
-            'Здесь видно, сколько решений прошло через систему и как часто нужен оператор.'
-        )
-
-        records = read_log()
-
-        if not records:
-            st.info('Журнал пуст. Запустите контур.')
+        if manual_share > 0.3 and total >= 5:
+            st.warning(
+                f'Доля ручной проверки {100 * manual_share:.0f}% выше 30% — '
+                f'оператор перегружен. Подумайте о пересмотре порогов или правил.'
+            )
         else:
-            df_log = pd.DataFrame([
-                {
-                    'time': record.get('timestamp'),
-                    'expected_class': record.get('expected_class'),
-                    'prediction': record.get('prediction'),
-                    'confidence': record.get('confidence'),
-                    'zone': record.get('zone_final'),
-                    'feedback': record.get('feedback'),
-                }
-                for record in records
-            ])
-
-            total = len(df_log)
-            with_fb = int(df_log['feedback'].notna().sum())
-            avg_conf = df_log['confidence'].dropna().mean()
-            zone_counts = df_log['zone'].value_counts()
-            manual_share = zone_counts.get('manual_review', 0) / total
-
-            c1, c2, c3, c4 = st.columns(4)
-
-            c1.metric('Всего решений', total)
-            c2.metric('С обратной связью', f'{with_fb} ({100 * with_fb / total:.0f}%)')
-            c3.metric(
-                'Средняя уверенность',
-                f'{avg_conf:.3f}' if pd.notna(avg_conf) else '-',
-            )
-            c4.metric('Доля ручной проверки', f'{100 * manual_share:.0f}%')
-
-            st.divider()
-
-            st.markdown('**Health-check контура**')
-
-            if manual_share > 0.3 and total >= 5:
-                st.warning(
-                    f'Доля ручной проверки {100 * manual_share:.0f}% выше 30% — '
-                    f'оператор перегружен. Подумайте о пересмотре порогов или правил.'
-                )
-            else:
-                st.success(
-                    'Нагрузка на оператора в норме: менее 30% решений требуют ручной проверки.'
-                )
-
-            if total >= 5 and with_fb / total < 0.5:
-                st.warning(
-                    f'Только {100 * with_fb / total:.0f}% решений получили обратную связь. '
-                    f'Без неё сложнее понять, где модель ошибается.'
-                )
-            elif total >= 5:
-                st.success(
-                    f'Обратная связь поступает по {100 * with_fb / total:.0f}% решений.'
-                )
-
-            st.divider()
-
-            st.subheader('Последние решения')
-
-            st.dataframe(
-                df_log.tail(20).iloc[::-1],
-                width='stretch',
-                height=300,
-                hide_index=True,
+            st.success(
+                'Нагрузка на оператора в норме: менее 30% решений требуют ручной проверки.'
             )
 
-            st.download_button(
-                'Скачать журнал',
-                data=LOG_PATH.read_bytes(),
-                file_name='decisions.jsonl',
-                mime='application/x-ndjson',
+        if total >= 5 and with_fb / total < 0.5:
+            st.warning(
+                f'Только {100 * with_fb / total:.0f}% решений получили обратную связь. '
+                f'Без неё сложнее понять, где модель ошибается.'
             )
+        elif total >= 5:
+            st.success(
+                f'Обратная связь поступает по {100 * with_fb / total:.0f}% решений.'
+            )
+
+        st.divider()
+
+        st.subheader('Последние решения')
+
+        st.dataframe(
+            df_log.tail(20).iloc[::-1],
+            width='stretch',
+            height=300,
+            hide_index=True,
+        )
+
+        st.download_button(
+            'Скачать журнал',
+            data=LOG_PATH.read_bytes(),
+            file_name='decisions.jsonl',
+            mime='application/x-ndjson',
+        )
+
+
 with tab_about:
     st.subheader('Кейс')
 
@@ -1187,6 +1311,78 @@ with tab_about:
         'Фрезерный станок работает на производственной линии. '
         'Система получает параметры процесса и выбирает безопасное действие.'
     )
+
+    st.divider()
+
+    st.subheader('Датасет AI4I 2020 Predictive Maintenance')
+
+    st.write(
+        'Модель обучена на открытом датасете **AI4I 2020 Predictive Maintenance Dataset** '
+        '(UCI Machine Learning Repository). Это синтетический набор данных, '
+        'который моделирует работу промышленного фрезерного станка и используется '
+        'как стандартный бенчмарк в задачах предиктивного обслуживания.'
+    )
+
+    st.markdown('##### Что в датасете')
+
+    ds1, ds2, ds3 = st.columns(3)
+
+    ds1.metric('Наблюдений', '10 000')
+    ds2.metric('Признаков', '6 рабочих + 8 служебных')
+    ds3.metric('Классов отказа', '5 + норма')
+
+    st.markdown('##### Признаки станка')
+
+    st.markdown('''
+| Признак | Что означает | Типичный диапазон |
+| --- | --- | --- |
+| **Type** | Качество детали: L (Low, 50%), M (Medium, 30%), H (High, 20%) | L / M / H |
+| **Air temperature** | Температура воздуха в цеху | ~295–305 K (≈22–32 °C) |
+| **Process temperature** | Температура в зоне обработки | ~305–315 K (≈32–42 °C) |
+| **Rotational speed** | Обороты шпинделя | ~1100–2900 об/мин |
+| **Torque** | Крутящий момент на инструменте | ~3–77 Н·м |
+| **Tool wear** | Время работы инструмента с момента замены | 0–253 мин |
+    ''')
+
+    st.markdown('##### Типы отказов и физические правила, по которым они генерируются')
+
+    st.markdown('''
+| Класс | Доля в данных | Условие возникновения |
+| --- | --- | --- |
+| **No Failure** — нет отказа | ~96.5 % | Все параметры в норме |
+| **Heat Dissipation Failure** (HDF) — отказ теплоотвода | ~1.2 % | Разница температур < 8.6 K **и** обороты < 1380 об/мин |
+| **Power Failure** (PWF) — отказ по мощности | ~0.95 % | Мощность вне диапазона 3500–9000 Вт (P = 2π·RPM·Torque / 60) |
+| **Overstrain Failure** (OSF) — перегрузка по моменту | ~0.78 % | Tool_Wear × Torque превышает порог: 11000 для L, 12000 для M, 13000 для H |
+| **Tool Wear Failure** (TWF) — износ инструмента | ~0.46 % | Износ достиг случайной точки в диапазоне 200–240 мин |
+| **Random Failures** (RNF) — случайный отказ | ~0.19 % | Случайный отказ с вероятностью 0.1% на любом наблюдении |
+    ''')
+
+    st.info(
+        '**Важно:** классы сильно несбалансированы. Из 10 000 наблюдений только '
+        '~339 содержат отказы — модель должна научиться ловить редкие события, '
+        'не выдавая много ложных срабатываний на 96.5 % нормальных наблюдений.'
+    )
+
+    st.markdown('##### Почему пороги в контуре близки, но не равны порогам датасета')
+
+    st.write(
+        'В контуре физические правила (вкладка «Пороги и зоны») немного жёстче, '
+        'чем в исходном датасете: ΔT < 10 K вместо 8.6 K, мощность 4000–8500 Вт вместо '
+        '3500–9000 Вт. Это сделано **намеренно** — чтобы создать «зону подозрения» '
+        'до того, как наступит реальный отказ. Если ждать точного совпадения с физикой '
+        'отказа, у оператора уже не будет времени среагировать.'
+    )
+
+    st.markdown('##### Откуда взять датасет')
+
+    st.markdown(
+        '- **UCI ML Repository:** [archive.ics.uci.edu/dataset/601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset)  \n'
+        '- **Авторы:** Stephan Matzka, School of Engineering — Technology and Life, '
+        'Hochschule für Technik und Wirtschaft Berlin, 2020  \n'
+        '- **Лицензия:** Creative Commons Attribution 4.0 International (CC BY 4.0)'
+    )
+
+    st.divider()
 
     st.subheader('Архитектура контура')
 
