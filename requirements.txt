@@ -1,0 +1,10 @@
+streamlit>=1.30
+mljar-supervised>=1.1
+pandas>=2.0
+numpy>=1.24
+scikit-learn==1.6.1
+lightgbm>=4.0
+xgboost>=2.0
+catboost>=1.2
+plotly>=5.18
+matplotlib>=3.7

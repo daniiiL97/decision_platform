@@ -1,0 +1,300 @@
+{
+    "uid": "aa4003db-5044-430e-a28f-cf87f0a5bfcf",
+    "name": "31_CatBoost_SelectedFeatures",
+    "preprocessing": [
+        {
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {},
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {},
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {},
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {},
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {},
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        }
+    ],
+    "learners": [
+        {
+            "library_version": "1.2.10",
+            "algorithm_name": "CatBoost",
+            "algorithm_short_name": "CatBoost",
+            "uid": "081dfc88-4cb6-4cd1-86fe-b82c593768b2",
+            "params": {
+                "model_type": "CatBoost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 49,
+                "learning_rate": 0.1,
+                "depth": 5,
+                "rsm": 0.8,
+                "loss_function": "MultiClass",
+                "eval_metric": "MultiClass",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_0",
+            "best_ntree_limit": 537
+        },
+        {
+            "library_version": "1.2.10",
+            "algorithm_name": "CatBoost",
+            "algorithm_short_name": "CatBoost",
+            "uid": "03eebd07-5f0e-4472-8fc8-f247da1dcbb9",
+            "params": {
+                "model_type": "CatBoost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 49,
+                "learning_rate": 0.1,
+                "depth": 5,
+                "rsm": 0.8,
+                "loss_function": "MultiClass",
+                "eval_metric": "MultiClass",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_1",
+            "best_ntree_limit": 364
+        },
+        {
+            "library_version": "1.2.10",
+            "algorithm_name": "CatBoost",
+            "algorithm_short_name": "CatBoost",
+            "uid": "53b4629d-8b84-4e08-8517-eaae1f76f6d9",
+            "params": {
+                "model_type": "CatBoost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 49,
+                "learning_rate": 0.1,
+                "depth": 5,
+                "rsm": 0.8,
+                "loss_function": "MultiClass",
+                "eval_metric": "MultiClass",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_2",
+            "best_ntree_limit": 512
+        },
+        {
+            "library_version": "1.2.10",
+            "algorithm_name": "CatBoost",
+            "algorithm_short_name": "CatBoost",
+            "uid": "04f53bac-8b47-4544-9a85-170857039ce2",
+            "params": {
+                "model_type": "CatBoost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 49,
+                "learning_rate": 0.1,
+                "depth": 5,
+                "rsm": 0.8,
+                "loss_function": "MultiClass",
+                "eval_metric": "MultiClass",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_3",
+            "best_ntree_limit": 506
+        },
+        {
+            "library_version": "1.2.10",
+            "algorithm_name": "CatBoost",
+            "algorithm_short_name": "CatBoost",
+            "uid": "29c93b03-651e-4377-a7cf-579e5529b975",
+            "params": {
+                "model_type": "CatBoost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 49,
+                "learning_rate": 0.1,
+                "depth": 5,
+                "rsm": 0.8,
+                "loss_function": "MultiClass",
+                "eval_metric": "MultiClass",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_4",
+            "best_ntree_limit": 524
+        }
+    ],
+    "params": {
+        "additional": {
+            "max_rounds": 10000,
+            "early_stopping_rounds": 50,
+            "max_rows_limit": null,
+            "max_cols_limit": null
+        },
+        "preprocessing": {
+            "columns_preprocessing": {},
+            "target_preprocessing": [
+                "na_exclude",
+                "categorical_to_int"
+            ],
+            "ml_task": "multiclass_classification",
+            "drop_features": [
+                "Tool_Wear_sum_Rotational_Speed",
+                "Process_Temperature_ratio_Rotational_Speed",
+                "random_feature",
+                "Torque_ratio_Tool_Wear"
+            ]
+        },
+        "validation_strategy": {
+            "validation_type": "kfold",
+            "k_folds": 5,
+            "shuffle": true,
+            "stratify": true,
+            "random_seed": 42,
+            "X_path": "AutoML_AI4I_Multiclass/X.data",
+            "y_path": "AutoML_AI4I_Multiclass/y.data",
+            "results_path": "AutoML_AI4I_Multiclass"
+        },
+        "learner": {
+            "model_type": "CatBoost",
+            "ml_task": "multiclass_classification",
+            "n_jobs": -1,
+            "seed": 49,
+            "learning_rate": 0.1,
+            "depth": 5,
+            "rsm": 0.8,
+            "loss_function": "MultiClass",
+            "eval_metric": "MultiClass",
+            "num_class": 5,
+            "explain_level": 2
+        },
+        "automl_random_state": 42,
+        "ml_task": "multiclass_classification",
+        "explain_level": 2,
+        "name": "31_CatBoost_SelectedFeatures",
+        "status": "initialized",
+        "final_loss": null,
+        "train_time": null,
+        "data_type": "original_features_selection",
+        "max_time_for_learner": 60
+    },
+    "saved": [
+        "31_CatBoost_SelectedFeatures/learner_fold_0.catboost",
+        "31_CatBoost_SelectedFeatures/learner_fold_1.catboost",
+        "31_CatBoost_SelectedFeatures/learner_fold_2.catboost",
+        "31_CatBoost_SelectedFeatures/learner_fold_3.catboost",
+        "31_CatBoost_SelectedFeatures/learner_fold_4.catboost"
+    ],
+    "predictions_fname": "31_CatBoost_SelectedFeatures/predictions_out_of_folds.csv",
+    "metric_name": "logloss",
+    "final_loss": "0.0502475613055982",
+    "train_time": 50.40183162689209,
+    "is_stacked": false,
+    "joblib_version": "1.5.3"
+}

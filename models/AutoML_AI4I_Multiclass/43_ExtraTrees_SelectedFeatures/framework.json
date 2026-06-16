@@ -1,0 +1,395 @@
+{
+    "uid": "1f4799ba-db25-482d-b3db-dcaed5992bc0",
+    "name": "43_ExtraTrees_SelectedFeatures",
+    "preprocessing": [
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_int",
+                    "convert_params": {
+                        "Type": {
+                            "H": 0,
+                            "L": 1,
+                            "M": 2
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_int"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_int",
+                    "convert_params": {
+                        "Type": {
+                            "H": 0,
+                            "L": 1,
+                            "M": 2
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_int"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_int",
+                    "convert_params": {
+                        "Type": {
+                            "H": 0,
+                            "L": 1,
+                            "M": 2
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_int"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_int",
+                    "convert_params": {
+                        "Type": {
+                            "H": 0,
+                            "L": 1,
+                            "M": 2
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_int"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_int",
+                    "convert_params": {
+                        "Type": {
+                            "H": 0,
+                            "L": 1,
+                            "M": 2
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_int"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "drop_features": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "random_feature",
+                    "Torque_ratio_Tool_Wear"
+                ]
+            }
+        }
+    ],
+    "learners": [
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Extra Trees Classifier",
+            "algorithm_short_name": "Extra Trees",
+            "uid": "8db26e1e-6afd-4206-bc83-1e4a64142efe",
+            "params": {
+                "model_type": "Extra Trees",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 43,
+                "criterion": "entropy",
+                "max_features": 0.8,
+                "min_samples_split": 50,
+                "max_depth": 7,
+                "eval_metric_name": "logloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_0"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Extra Trees Classifier",
+            "algorithm_short_name": "Extra Trees",
+            "uid": "fea09de7-4acd-4b1e-9b5e-6a475e26ff79",
+            "params": {
+                "model_type": "Extra Trees",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 43,
+                "criterion": "entropy",
+                "max_features": 0.8,
+                "min_samples_split": 50,
+                "max_depth": 7,
+                "eval_metric_name": "logloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_1"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Extra Trees Classifier",
+            "algorithm_short_name": "Extra Trees",
+            "uid": "2cfd5069-a5b7-4065-aaed-5c89d9058c56",
+            "params": {
+                "model_type": "Extra Trees",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 43,
+                "criterion": "entropy",
+                "max_features": 0.8,
+                "min_samples_split": 50,
+                "max_depth": 7,
+                "eval_metric_name": "logloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_2"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Extra Trees Classifier",
+            "algorithm_short_name": "Extra Trees",
+            "uid": "a85e0048-fe72-4e11-a0ab-e4426ce920d7",
+            "params": {
+                "model_type": "Extra Trees",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 43,
+                "criterion": "entropy",
+                "max_features": 0.8,
+                "min_samples_split": 50,
+                "max_depth": 7,
+                "eval_metric_name": "logloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_3"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Extra Trees Classifier",
+            "algorithm_short_name": "Extra Trees",
+            "uid": "3604bd5e-e9c6-46d3-972d-5cf4b90a7ad6",
+            "params": {
+                "model_type": "Extra Trees",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "seed": 43,
+                "criterion": "entropy",
+                "max_features": 0.8,
+                "min_samples_split": 50,
+                "max_depth": 7,
+                "eval_metric_name": "logloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_4"
+        }
+    ],
+    "params": {
+        "additional": {
+            "trees_in_step": 100,
+            "max_steps": 50,
+            "early_stopping_rounds": 50,
+            "max_rows_limit": null,
+            "max_cols_limit": null
+        },
+        "preprocessing": {
+            "columns_preprocessing": {
+                "Type": [
+                    "categorical_to_int"
+                ]
+            },
+            "target_preprocessing": [
+                "na_exclude",
+                "categorical_to_int"
+            ],
+            "ml_task": "multiclass_classification",
+            "drop_features": [
+                "Tool_Wear_sum_Rotational_Speed",
+                "Process_Temperature_ratio_Rotational_Speed",
+                "random_feature",
+                "Torque_ratio_Tool_Wear"
+            ]
+        },
+        "validation_strategy": {
+            "validation_type": "kfold",
+            "k_folds": 5,
+            "shuffle": true,
+            "stratify": true,
+            "random_seed": 42,
+            "X_path": "AutoML_AI4I_Multiclass/X.data",
+            "y_path": "AutoML_AI4I_Multiclass/y.data",
+            "results_path": "AutoML_AI4I_Multiclass"
+        },
+        "learner": {
+            "model_type": "Extra Trees",
+            "ml_task": "multiclass_classification",
+            "n_jobs": -1,
+            "seed": 43,
+            "criterion": "entropy",
+            "max_features": 0.8,
+            "min_samples_split": 50,
+            "max_depth": 7,
+            "eval_metric_name": "logloss",
+            "num_class": 5,
+            "explain_level": 2
+        },
+        "automl_random_state": 42,
+        "ml_task": "multiclass_classification",
+        "explain_level": 2,
+        "name": "43_ExtraTrees_SelectedFeatures",
+        "status": "initialized",
+        "final_loss": null,
+        "train_time": null,
+        "data_type": "original_features_selection",
+        "max_time_for_learner": 60
+    },
+    "saved": [
+        "43_ExtraTrees_SelectedFeatures/learner_fold_0.extra_trees",
+        "43_ExtraTrees_SelectedFeatures/learner_fold_1.extra_trees",
+        "43_ExtraTrees_SelectedFeatures/learner_fold_2.extra_trees",
+        "43_ExtraTrees_SelectedFeatures/learner_fold_3.extra_trees",
+        "43_ExtraTrees_SelectedFeatures/learner_fold_4.extra_trees"
+    ],
+    "predictions_fname": "43_ExtraTrees_SelectedFeatures/predictions_out_of_folds.csv",
+    "metric_name": "logloss",
+    "final_loss": "0.08262154046512611",
+    "train_time": 18.71213173866272,
+    "is_stacked": false,
+    "joblib_version": "1.5.3"
+}

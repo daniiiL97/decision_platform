@@ -1,0 +1,830 @@
+{
+    "uid": "79effa8e-573e-44c8-9903-ced0eea9d987",
+    "name": "74_Xgboost_GoldenFeatures",
+    "preprocessing": [
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_onehot",
+                    "convert_params": {
+                        "Type": {
+                            "new_columns": [
+                                "Type_H",
+                                "Type_L",
+                                "Type_M"
+                            ],
+                            "unique_values": [
+                                "H",
+                                "L",
+                                "M"
+                            ],
+                            "old_column": "Type",
+                            "old_column_dtype": "object"
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "golden_features": {
+                "new_features": [
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.1870780247
+                    },
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Torque",
+                        "operation": "ratio",
+                        "score": 0.2127278792
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2132726218
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "multiply",
+                        "score": 0.2137247761
+                    },
+                    {
+                        "feature1": "Process_Temperature",
+                        "feature2": "Rotational_Speed",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Rotational_Speed",
+                        "feature2": "Process_Temperature",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.2240155723
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2286514745
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2362175788
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2380105826
+                    }
+                ],
+                "new_columns": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Tool_Wear_ratio_Torque",
+                    "Torque_ratio_Tool_Wear",
+                    "Torque_multiply_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "Rotational_Speed_ratio_Process_Temperature",
+                    "Torque_sum_Rotational_Speed",
+                    "Torque_diff_Tool_Wear",
+                    "Air_Temperature_diff_Tool_Wear",
+                    "Air_Temperature_ratio_Tool_Wear"
+                ],
+                "ml_task": "multiclass_classification"
+            },
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_onehot"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "golden_features": {
+                    "results_path": "AutoML_AI4I_Multiclass",
+                    "ml_task": "multiclass_classification",
+                    "n_jobs": -1
+                }
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_onehot",
+                    "convert_params": {
+                        "Type": {
+                            "new_columns": [
+                                "Type_H",
+                                "Type_L",
+                                "Type_M"
+                            ],
+                            "unique_values": [
+                                "H",
+                                "L",
+                                "M"
+                            ],
+                            "old_column": "Type",
+                            "old_column_dtype": "object"
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "golden_features": {
+                "new_features": [
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.1870780247
+                    },
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Torque",
+                        "operation": "ratio",
+                        "score": 0.2127278792
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2132726218
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "multiply",
+                        "score": 0.2137247761
+                    },
+                    {
+                        "feature1": "Process_Temperature",
+                        "feature2": "Rotational_Speed",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Rotational_Speed",
+                        "feature2": "Process_Temperature",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.2240155723
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2286514745
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2362175788
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2380105826
+                    }
+                ],
+                "new_columns": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Tool_Wear_ratio_Torque",
+                    "Torque_ratio_Tool_Wear",
+                    "Torque_multiply_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "Rotational_Speed_ratio_Process_Temperature",
+                    "Torque_sum_Rotational_Speed",
+                    "Torque_diff_Tool_Wear",
+                    "Air_Temperature_diff_Tool_Wear",
+                    "Air_Temperature_ratio_Tool_Wear"
+                ],
+                "ml_task": "multiclass_classification"
+            },
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_onehot"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "golden_features": {
+                    "results_path": "AutoML_AI4I_Multiclass",
+                    "ml_task": "multiclass_classification",
+                    "n_jobs": -1
+                }
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_onehot",
+                    "convert_params": {
+                        "Type": {
+                            "new_columns": [
+                                "Type_H",
+                                "Type_L",
+                                "Type_M"
+                            ],
+                            "unique_values": [
+                                "H",
+                                "L",
+                                "M"
+                            ],
+                            "old_column": "Type",
+                            "old_column_dtype": "object"
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "golden_features": {
+                "new_features": [
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.1870780247
+                    },
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Torque",
+                        "operation": "ratio",
+                        "score": 0.2127278792
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2132726218
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "multiply",
+                        "score": 0.2137247761
+                    },
+                    {
+                        "feature1": "Process_Temperature",
+                        "feature2": "Rotational_Speed",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Rotational_Speed",
+                        "feature2": "Process_Temperature",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.2240155723
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2286514745
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2362175788
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2380105826
+                    }
+                ],
+                "new_columns": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Tool_Wear_ratio_Torque",
+                    "Torque_ratio_Tool_Wear",
+                    "Torque_multiply_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "Rotational_Speed_ratio_Process_Temperature",
+                    "Torque_sum_Rotational_Speed",
+                    "Torque_diff_Tool_Wear",
+                    "Air_Temperature_diff_Tool_Wear",
+                    "Air_Temperature_ratio_Tool_Wear"
+                ],
+                "ml_task": "multiclass_classification"
+            },
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_onehot"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "golden_features": {
+                    "results_path": "AutoML_AI4I_Multiclass",
+                    "ml_task": "multiclass_classification",
+                    "n_jobs": -1
+                }
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_onehot",
+                    "convert_params": {
+                        "Type": {
+                            "new_columns": [
+                                "Type_H",
+                                "Type_L",
+                                "Type_M"
+                            ],
+                            "unique_values": [
+                                "H",
+                                "L",
+                                "M"
+                            ],
+                            "old_column": "Type",
+                            "old_column_dtype": "object"
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "golden_features": {
+                "new_features": [
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.1870780247
+                    },
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Torque",
+                        "operation": "ratio",
+                        "score": 0.2127278792
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2132726218
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "multiply",
+                        "score": 0.2137247761
+                    },
+                    {
+                        "feature1": "Process_Temperature",
+                        "feature2": "Rotational_Speed",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Rotational_Speed",
+                        "feature2": "Process_Temperature",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.2240155723
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2286514745
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2362175788
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2380105826
+                    }
+                ],
+                "new_columns": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Tool_Wear_ratio_Torque",
+                    "Torque_ratio_Tool_Wear",
+                    "Torque_multiply_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "Rotational_Speed_ratio_Process_Temperature",
+                    "Torque_sum_Rotational_Speed",
+                    "Torque_diff_Tool_Wear",
+                    "Air_Temperature_diff_Tool_Wear",
+                    "Air_Temperature_ratio_Tool_Wear"
+                ],
+                "ml_task": "multiclass_classification"
+            },
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_onehot"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "golden_features": {
+                    "results_path": "AutoML_AI4I_Multiclass",
+                    "ml_task": "multiclass_classification",
+                    "n_jobs": -1
+                }
+            }
+        },
+        {
+            "categorical": [
+                {
+                    "convert_method": "categorical_to_onehot",
+                    "convert_params": {
+                        "Type": {
+                            "new_columns": [
+                                "Type_H",
+                                "Type_L",
+                                "Type_M"
+                            ],
+                            "unique_values": [
+                                "H",
+                                "L",
+                                "M"
+                            ],
+                            "old_column": "Type",
+                            "old_column_dtype": "object"
+                        }
+                    },
+                    "columns": [
+                        "Type"
+                    ]
+                }
+            ],
+            "golden_features": {
+                "new_features": [
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.1870780247
+                    },
+                    {
+                        "feature1": "Tool_Wear",
+                        "feature2": "Torque",
+                        "operation": "ratio",
+                        "score": 0.2127278792
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2132726218
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "multiply",
+                        "score": 0.2137247761
+                    },
+                    {
+                        "feature1": "Process_Temperature",
+                        "feature2": "Rotational_Speed",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Rotational_Speed",
+                        "feature2": "Process_Temperature",
+                        "operation": "ratio",
+                        "score": 0.2176327306
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Rotational_Speed",
+                        "operation": "sum",
+                        "score": 0.2240155723
+                    },
+                    {
+                        "feature1": "Torque",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2286514745
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "diff",
+                        "score": 0.2362175788
+                    },
+                    {
+                        "feature1": "Air_Temperature",
+                        "feature2": "Tool_Wear",
+                        "operation": "ratio",
+                        "score": 0.2380105826
+                    }
+                ],
+                "new_columns": [
+                    "Tool_Wear_sum_Rotational_Speed",
+                    "Tool_Wear_ratio_Torque",
+                    "Torque_ratio_Tool_Wear",
+                    "Torque_multiply_Rotational_Speed",
+                    "Process_Temperature_ratio_Rotational_Speed",
+                    "Rotational_Speed_ratio_Process_Temperature",
+                    "Torque_sum_Rotational_Speed",
+                    "Torque_diff_Tool_Wear",
+                    "Air_Temperature_diff_Tool_Wear",
+                    "Air_Temperature_ratio_Tool_Wear"
+                ],
+                "ml_task": "multiclass_classification"
+            },
+            "categorical_y": {
+                "Heat_Dissipation_Failure": 0,
+                "No_Failure": 1,
+                "Overstrain_Failure": 2,
+                "Power_Failure": 3,
+                "Tool_Wear_Failure": 4
+            },
+            "ml_task": "multiclass_classification",
+            "params": {
+                "columns_preprocessing": {
+                    "Type": [
+                        "categorical_to_onehot"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "categorical_to_int"
+                ],
+                "ml_task": "multiclass_classification",
+                "golden_features": {
+                    "results_path": "AutoML_AI4I_Multiclass",
+                    "ml_task": "multiclass_classification",
+                    "n_jobs": -1
+                }
+            }
+        }
+    ],
+    "learners": [
+        {
+            "library_version": "3.2.0",
+            "algorithm_name": "Extreme Gradient Boosting",
+            "algorithm_short_name": "Xgboost",
+            "uid": "56859e2c-cc7f-417f-9c14-0e119f9b73fc",
+            "params": {
+                "model_type": "Xgboost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "objective": "multi:softprob",
+                "eta": 0.05,
+                "max_depth": 6,
+                "min_child_weight": 1,
+                "subsample": 0.9,
+                "colsample_bytree": 1.0,
+                "seed": 2,
+                "eval_metric": "mlogloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_0"
+        },
+        {
+            "library_version": "3.2.0",
+            "algorithm_name": "Extreme Gradient Boosting",
+            "algorithm_short_name": "Xgboost",
+            "uid": "99b0389d-6734-458e-973f-e50c1e645bc7",
+            "params": {
+                "model_type": "Xgboost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "objective": "multi:softprob",
+                "eta": 0.05,
+                "max_depth": 6,
+                "min_child_weight": 1,
+                "subsample": 0.9,
+                "colsample_bytree": 1.0,
+                "seed": 2,
+                "eval_metric": "mlogloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_1"
+        },
+        {
+            "library_version": "3.2.0",
+            "algorithm_name": "Extreme Gradient Boosting",
+            "algorithm_short_name": "Xgboost",
+            "uid": "283f2693-f3b9-496f-b598-6d3720201c3d",
+            "params": {
+                "model_type": "Xgboost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "objective": "multi:softprob",
+                "eta": 0.05,
+                "max_depth": 6,
+                "min_child_weight": 1,
+                "subsample": 0.9,
+                "colsample_bytree": 1.0,
+                "seed": 2,
+                "eval_metric": "mlogloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_2"
+        },
+        {
+            "library_version": "3.2.0",
+            "algorithm_name": "Extreme Gradient Boosting",
+            "algorithm_short_name": "Xgboost",
+            "uid": "c3560d28-1ba7-4ac7-b59e-3cd4d4498a08",
+            "params": {
+                "model_type": "Xgboost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "objective": "multi:softprob",
+                "eta": 0.05,
+                "max_depth": 6,
+                "min_child_weight": 1,
+                "subsample": 0.9,
+                "colsample_bytree": 1.0,
+                "seed": 2,
+                "eval_metric": "mlogloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_3"
+        },
+        {
+            "library_version": "3.2.0",
+            "algorithm_name": "Extreme Gradient Boosting",
+            "algorithm_short_name": "Xgboost",
+            "uid": "3eb19f03-ef8a-42ab-a88d-b3ad92c183d5",
+            "params": {
+                "model_type": "Xgboost",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1,
+                "objective": "multi:softprob",
+                "eta": 0.05,
+                "max_depth": 6,
+                "min_child_weight": 1,
+                "subsample": 0.9,
+                "colsample_bytree": 1.0,
+                "seed": 2,
+                "eval_metric": "mlogloss",
+                "num_class": 5,
+                "explain_level": 2
+            },
+            "name": "learner_fold_4"
+        }
+    ],
+    "params": {
+        "additional": {
+            "max_rounds": 10000,
+            "early_stopping_rounds": 50,
+            "max_rows_limit": null,
+            "max_cols_limit": null
+        },
+        "preprocessing": {
+            "columns_preprocessing": {
+                "Type": [
+                    "categorical_to_onehot"
+                ]
+            },
+            "target_preprocessing": [
+                "na_exclude",
+                "categorical_to_int"
+            ],
+            "ml_task": "multiclass_classification",
+            "golden_features": {
+                "results_path": "AutoML_AI4I_Multiclass",
+                "ml_task": "multiclass_classification",
+                "n_jobs": -1
+            }
+        },
+        "validation_strategy": {
+            "validation_type": "kfold",
+            "k_folds": 5,
+            "shuffle": true,
+            "stratify": true,
+            "random_seed": 42,
+            "X_path": "AutoML_AI4I_Multiclass/X.data",
+            "y_path": "AutoML_AI4I_Multiclass/y.data",
+            "results_path": "AutoML_AI4I_Multiclass"
+        },
+        "learner": {
+            "model_type": "Xgboost",
+            "ml_task": "multiclass_classification",
+            "n_jobs": -1,
+            "objective": "multi:softprob",
+            "eta": 0.05,
+            "max_depth": 6,
+            "min_child_weight": 1,
+            "subsample": 0.9,
+            "colsample_bytree": 1.0,
+            "seed": 2,
+            "eval_metric": "mlogloss",
+            "num_class": 5,
+            "explain_level": 2
+        },
+        "automl_random_state": 42,
+        "ml_task": "multiclass_classification",
+        "explain_level": 2,
+        "name": "74_Xgboost_GoldenFeatures",
+        "status": "initialized",
+        "final_loss": null,
+        "train_time": null,
+        "data_type": "original_categorical_mix_golden_features",
+        "max_time_for_learner": 60
+    },
+    "saved": [
+        "74_Xgboost_GoldenFeatures/learner_fold_0.xgboost.json",
+        "74_Xgboost_GoldenFeatures/learner_fold_1.xgboost.json",
+        "74_Xgboost_GoldenFeatures/learner_fold_2.xgboost.json",
+        "74_Xgboost_GoldenFeatures/learner_fold_3.xgboost.json",
+        "74_Xgboost_GoldenFeatures/learner_fold_4.xgboost.json"
+    ],
+    "predictions_fname": "74_Xgboost_GoldenFeatures/predictions_out_of_folds.csv",
+    "metric_name": "logloss",
+    "final_loss": "0.044567912532264345",
+    "train_time": 38.28212857246399,
+    "is_stacked": false,
+    "joblib_version": "1.5.3"
+}

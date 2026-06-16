@@ -1,0 +1,77 @@
+{
+    "new_features": [
+        {
+            "feature1": "Tool_Wear",
+            "feature2": "Rotational_Speed",
+            "operation": "sum",
+            "score": 0.1870780247
+        },
+        {
+            "feature1": "Tool_Wear",
+            "feature2": "Torque",
+            "operation": "ratio",
+            "score": 0.2127278792
+        },
+        {
+            "feature1": "Torque",
+            "feature2": "Tool_Wear",
+            "operation": "ratio",
+            "score": 0.2132726218
+        },
+        {
+            "feature1": "Torque",
+            "feature2": "Rotational_Speed",
+            "operation": "multiply",
+            "score": 0.2137247761
+        },
+        {
+            "feature1": "Process_Temperature",
+            "feature2": "Rotational_Speed",
+            "operation": "ratio",
+            "score": 0.2176327306
+        },
+        {
+            "feature1": "Rotational_Speed",
+            "feature2": "Process_Temperature",
+            "operation": "ratio",
+            "score": 0.2176327306
+        },
+        {
+            "feature1": "Torque",
+            "feature2": "Rotational_Speed",
+            "operation": "sum",
+            "score": 0.2240155723
+        },
+        {
+            "feature1": "Torque",
+            "feature2": "Tool_Wear",
+            "operation": "diff",
+            "score": 0.2286514745
+        },
+        {
+            "feature1": "Air_Temperature",
+            "feature2": "Tool_Wear",
+            "operation": "diff",
+            "score": 0.2362175788
+        },
+        {
+            "feature1": "Air_Temperature",
+            "feature2": "Tool_Wear",
+            "operation": "ratio",
+            "score": 0.2380105826
+        }
+    ],
+    "new_columns": [
+        "Tool_Wear_sum_Rotational_Speed",
+        "Tool_Wear_ratio_Torque",
+        "Torque_ratio_Tool_Wear",
+        "Torque_multiply_Rotational_Speed",
+        "Process_Temperature_ratio_Rotational_Speed",
+        "Rotational_Speed_ratio_Process_Temperature",
+        "Torque_sum_Rotational_Speed",
+        "Torque_diff_Tool_Wear",
+        "Air_Temperature_diff_Tool_Wear",
+        "Air_Temperature_ratio_Tool_Wear"
+    ],
+    "ml_task": "multiclass_classification"
+}

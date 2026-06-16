@@ -1,0 +1,65 @@
+{
+  "target": "Failure_Type",
+  "task": "multiclass_classification",
+  "classes": [
+    "Heat_Dissipation_Failure",
+    "No_Failure",
+    "Overstrain_Failure",
+    "Power_Failure",
+    "Tool_Wear_Failure"
+  ],
+  "feature_columns": [
+    "Type",
+    "Air_Temperature",
+    "Process_Temperature",
+    "Rotational_Speed",
+    "Torque",
+    "Tool_Wear"
+  ],
+  "feature_stats": {
+    "Type": {
+      "dtype": "categorical",
+      "values": [
+        "H",
+        "L",
+        "M"
+      ]
+    },
+    "Air_Temperature": {
+      "dtype": "numeric",
+      "min": 295.3,
+      "max": 304.4,
+      "mean": 300.0061375
+    },
+    "Process_Temperature": {
+      "dtype": "numeric",
+      "min": 305.7,
+      "max": 313.8,
+      "mean": 310.00527500000004
+    },
+    "Rotational_Speed": {
+      "dtype": "numeric",
+      "min": 1168.0,
+      "max": 2886.0,
+      "mean": 1538.93975
+    },
+    "Torque": {
+      "dtype": "numeric",
+      "min": 3.8,
+      "max": 76.6,
+      "mean": 39.980975
+    },
+    "Tool_Wear": {
+      "dtype": "numeric",
+      "min": 0.0,
+      "max": 251.0,
+      "mean": 107.518375
+    }
+  },
+  "test_metrics": {
+    "f1_macro": 0.7116671053470586,
+    "balanced_accuracy": 0.7453600457613316,
+    "log_loss": 0.037285617402925374,
+    "roc_auc_ovr_macro": 0.991406119104832
+  }
+}

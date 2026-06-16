@@ -1,0 +1,14 @@
+feature,mean_importance
+Air_Temperature_ratio_Tool_Wear,-0.0018767309995059462
+Rotational_Speed_ratio_Process_Temperature,0.0013990952621820902
+Tool_Wear_ratio_Torque,0.001825527839204731
+Type,0.0041483264511165295
+Torque_diff_Tool_Wear,0.004693600898443251
+Torque_sum_Rotational_Speed,0.007965893775117847
+Air_Temperature_diff_Tool_Wear,0.010434412073214166
+Tool_Wear,0.030273075791535715
+Torque,0.03199034795398238
+Rotational_Speed,0.040543499736736884
+Process_Temperature,0.04300762681325973
+Torque_multiply_Rotational_Speed,0.08071640284919424
+Air_Temperature,0.133411617979674
