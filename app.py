@@ -155,16 +155,16 @@ def generate_power_failure(rng):
 
 
 def generate_overstrain(rng):
-    """Перегрузка: Torque * Tool_Wear > 10000 для типа L."""
+    """Чистая перегрузка: Tool_Wear * Torque > 11000, но мощность не выходит за 3500–9000."""
     air = float(rng.uniform(297, 302))
 
     return {
         'Type': 'L',
         'Air_Temperature': air,
         'Process_Temperature': float(air + rng.uniform(11, 13)),
-        'Rotational_Speed': float(rng.uniform(1550, 1700)),
-        'Torque': float(rng.uniform(63, 70)),
-        'Tool_Wear': float(rng.uniform(170, 185)),
+        'Rotational_Speed': float(rng.uniform(1180, 1280)),
+        'Torque': float(rng.uniform(60, 64)),
+        'Tool_Wear': float(rng.uniform(185, 195)),
     }
 
 
@@ -1448,3 +1448,4 @@ with tab_about:
         'Даже если модель ошибается, контур проверяет результат несколькими способами. '
         'Это снижает риск пропустить отказ.'
     )
+
