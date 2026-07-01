@@ -1,65 +1,210 @@
 {
-  "target": "Failure_Type",
-  "task": "multiclass_classification",
-  "classes": [
-    "Heat_Dissipation_Failure",
-    "No_Failure",
-    "Overstrain_Failure",
-    "Power_Failure",
-    "Tool_Wear_Failure"
-  ],
+  "project_name": "Контур контроля качества бетона",
+  "dataset_name": "Concrete Compressive Strength Data Set",
+  "dataset_url": "https://archive.ics.uci.edu/dataset/165/concrete+compressive+strength",
+  "model_dir": "models/AutoML_Concrete_Strength",
+  "task": "regression",
+  "target_column": "CONCRETE_COMPRESSIVE_STRENGTH",
+  "target_rus": "Прочность на сжатие, МПа",
   "feature_columns": [
-    "Type",
-    "Air_Temperature",
-    "Process_Temperature",
-    "Rotational_Speed",
-    "Torque",
-    "Tool_Wear"
+    "CEMENT",
+    "BLAST_FURNACE_SLAG",
+    "FLY_ASH",
+    "WATER",
+    "SUPERPLASTICIZER",
+    "COARSE_AGGREGATE",
+    "FINE_AGGREGATE",
+    "AGE"
   ],
-  "feature_stats": {
-    "Type": {
-      "dtype": "categorical",
-      "values": [
-        "H",
-        "L",
-        "M"
-      ]
+  "input_columns": [
+    "CEMENT",
+    "BLAST_FURNACE_SLAG",
+    "FLY_ASH",
+    "WATER",
+    "SUPERPLASTICIZER",
+    "COARSE_AGGREGATE",
+    "FINE_AGGREGATE",
+    "AGE"
+  ],
+  "feature_info": {
+    "CEMENT": {
+      "rus": "Цемент, кг/м³",
+      "help": "Масса цемента в составе смеси.",
+      "unit": "кг/м³"
     },
-    "Air_Temperature": {
-      "dtype": "numeric",
-      "min": 295.3,
-      "max": 304.4,
-      "mean": 300.0061375
+    "BLAST_FURNACE_SLAG": {
+      "rus": "Доменный шлак, кг/м³",
+      "help": "Масса доменного шлака.",
+      "unit": "кг/м³"
     },
-    "Process_Temperature": {
-      "dtype": "numeric",
-      "min": 305.7,
-      "max": 313.8,
-      "mean": 310.00527500000004
+    "FLY_ASH": {
+      "rus": "Зола-уноса, кг/м³",
+      "help": "Масса золы-уноса.",
+      "unit": "кг/м³"
     },
-    "Rotational_Speed": {
-      "dtype": "numeric",
-      "min": 1168.0,
-      "max": 2886.0,
-      "mean": 1538.93975
+    "WATER": {
+      "rus": "Вода, кг/м³",
+      "help": "Масса воды в смеси.",
+      "unit": "кг/м³"
     },
-    "Torque": {
-      "dtype": "numeric",
-      "min": 3.8,
-      "max": 76.6,
-      "mean": 39.980975
+    "SUPERPLASTICIZER": {
+      "rus": "Суперпластификатор, кг/м³",
+      "help": "Масса химической добавки-пластификатора.",
+      "unit": "кг/м³"
     },
-    "Tool_Wear": {
-      "dtype": "numeric",
-      "min": 0.0,
-      "max": 251.0,
-      "mean": 107.518375
+    "COARSE_AGGREGATE": {
+      "rus": "Крупный заполнитель, кг/м³",
+      "help": "Масса крупного заполнителя (щебня).",
+      "unit": "кг/м³"
+    },
+    "FINE_AGGREGATE": {
+      "rus": "Мелкий заполнитель, кг/м³",
+      "help": "Масса мелкого заполнителя (песка).",
+      "unit": "кг/м³"
+    },
+    "AGE": {
+      "rus": "Возраст образца, дней",
+      "help": "Сколько дней образец твердел до испытания.",
+      "unit": "дней"
     }
   },
+  "feature_stats": {
+    "CEMENT": {
+      "dtype": "numeric",
+      "min": 102.0,
+      "max": 540.0,
+      "mean": 282.7255555555556
+    },
+    "BLAST_FURNACE_SLAG": {
+      "dtype": "numeric",
+      "min": 0.0,
+      "max": 359.4,
+      "mean": 72.61652777777778
+    },
+    "FLY_ASH": {
+      "dtype": "numeric",
+      "min": 0.0,
+      "max": 200.0,
+      "mean": 53.699444444444445
+    },
+    "WATER": {
+      "dtype": "numeric",
+      "min": 121.8,
+      "max": 247.0,
+      "mean": 181.03625
+    },
+    "SUPERPLASTICIZER": {
+      "dtype": "numeric",
+      "min": 0.0,
+      "max": 32.2,
+      "mean": 6.3284722222222225
+    },
+    "COARSE_AGGREGATE": {
+      "dtype": "numeric",
+      "min": 801.0,
+      "max": 1145.0,
+      "mean": 973.6625
+    },
+    "FINE_AGGREGATE": {
+      "dtype": "numeric",
+      "min": 594.0,
+      "max": 992.6,
+      "mean": 775.4701388888889
+    },
+    "AGE": {
+      "dtype": "numeric",
+      "min": 1.0,
+      "max": 365.0,
+      "mean": 45.416666666666664
+    }
+  },
+  "split": {
+    "method": "random",
+    "train_ratio": 0.7,
+    "validation_ratio": 0.15,
+    "test_ratio": 0.15,
+    "random_state": 42
+  },
   "test_metrics": {
-    "f1_macro": 0.7116671053470586,
-    "balanced_accuracy": 0.7453600457613316,
-    "log_loss": 0.037285617402925374,
-    "roc_auc_ovr_macro": 0.991406119104832
-  }
+    "mae": 2.913050165453807,
+    "rmse": 4.089800293643047,
+    "r2": 0.9361204977582985,
+    "interval_coverage": 0.9096774193548387
+  },
+  "validation_metrics": {
+    "mae": 2.9423305057728446,
+    "rmse": 4.574309496981717,
+    "r2": 0.9363036275709287,
+    "interval_coverage": 0.896774193548387
+  },
+  "baseline_metrics": {
+    "Линейная регрессия": {
+      "mae": 7.778573624063477,
+      "rmse": 9.812266413048313,
+      "r2": 0.6322980082770335
+    },
+    "Средняя прочность в train": {
+      "mae": 13.249903225806452,
+      "rmse": 16.223100054009574,
+      "r2": -0.005136428549906258
+    }
+  },
+  "prediction_interval": {
+    "level": 0.9,
+    "radius": 6.120386242499885,
+    "unit": "МПа",
+    "method": "90-й процентиль абсолютной ошибки на validation"
+  },
+  "decision_thresholds": {
+    "low_strength": 21.284,
+    "high_strength": 42.946999999999996,
+    "source": "20-й и 70-й процентили прочности в train. Это внутренняя политика контроля качества, не нормативные значения ГОСТ."
+  },
+  "scenarios": [
+    {
+      "name": "Реальный сценарий 1",
+      "input": {
+        "CEMENT": 295.0,
+        "BLAST_FURNACE_SLAG": 0.0,
+        "FLY_ASH": 0.0,
+        "WATER": 185.0,
+        "SUPERPLASTICIZER": 0.0,
+        "COARSE_AGGREGATE": 1069.0,
+        "FINE_AGGREGATE": 769.0,
+        "AGE": 7.0
+      },
+      "actual_strength": 14.8,
+      "model_prediction_strength": 15.657490769430783
+    },
+    {
+      "name": "Реальный сценарий 2",
+      "input": {
+        "CEMENT": 374.0,
+        "BLAST_FURNACE_SLAG": 189.2,
+        "FLY_ASH": 0.0,
+        "WATER": 170.1,
+        "SUPERPLASTICIZER": 10.1,
+        "COARSE_AGGREGATE": 926.1,
+        "FINE_AGGREGATE": 756.7,
+        "AGE": 3.0
+      },
+      "actual_strength": 34.4,
+      "model_prediction_strength": 33.20534866032418
+    },
+    {
+      "name": "Реальный сценарий 3",
+      "input": {
+        "CEMENT": 297.2,
+        "BLAST_FURNACE_SLAG": 0.0,
+        "FLY_ASH": 117.5,
+        "WATER": 174.8,
+        "SUPERPLASTICIZER": 9.5,
+        "COARSE_AGGREGATE": 1022.8,
+        "FINE_AGGREGATE": 753.5,
+        "AGE": 56.0
+      },
+      "actual_strength": 51.96,
+      "model_prediction_strength": 52.75271657994184
+    }
+  ]
 }

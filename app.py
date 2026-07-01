@@ -1,6 +1,9 @@
 """
-Контур принятия решений для предиктивного обслуживания фрезерного станка.
-Реализация 8 шагов архитектуры контура из лекций.
+Система контроля качества бетонной смеси.
+
+Модель оценивает прочность бетона на сжатие по составу смеси и возрасту образца.
+Система сопоставляет прогнозный интервал с технологическими границами и предлагает
+дальнейшее действие.
 """
 
 import json
@@ -9,570 +12,736 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from supervised.automl import AutoML
 
-
-MODEL_DIR = Path('models/AutoML_AI4I_Multiclass')
-CONFIG_PATH = Path('models/config.json')
-LOG_PATH = Path('logs/decisions.jsonl')
+MODEL_DIR = Path("models/AutoML_Concrete_Strength")
+CONFIG_PATH = Path("models/config.json")
+LOG_PATH = Path("logs/decisions.jsonl")
 LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
 LOG_RETENTION_HOURS = 24
 
-
-CLASS_INFO = {
-    'No_Failure': {
-        'rus': 'Нет отказа',
-        'auto_action': 'Продолжать работу. Параметры станка в норме',
-        'review_action': 'Проверить станок: отказ не обнаружен, но уверенность модели невысокая',
-        'manual_action': 'Проверить станок вручную: модель недостаточно уверена',
-        'color': '#2ECC71',
-    },
-    'Heat_Dissipation_Failure': {
-        'rus': 'Перегрев',
-        'auto_action': 'Остановить станок, проверить теплоотвод',
-        'review_action': 'Проверить систему охлаждения и теплоотвод',
-        'manual_action': 'Вручную проверить возможный перегрев',
-        'color': '#E74C3C',
-    },
-    'Power_Failure': {
-        'rus': 'Отказ по мощности',
-        'auto_action': 'Проверить режим мощности и нагрузку станка',
-        'review_action': 'Проверить параметры мощности',
-        'manual_action': 'Вручную проверить возможный отказ по мощности',
-        'color': '#F39C12',
-    },
-    'Overstrain_Failure': {
-        'rus': 'Перегрузка по моменту',
-        'auto_action': 'Снизить нагрузку и проверить режим резания',
-        'review_action': 'Проверить возможную перегрузку по моменту',
-        'manual_action': 'Вручную проверить перегрузку по моменту',
-        'color': '#9B59B6',
-    },
-    'Tool_Wear_Failure': {
-        'rus': 'Износ инструмента',
-        'auto_action': 'Проверить состояние инструмента',
-        'review_action': 'Проверить возможный износ',
-        'manual_action': 'Вручную проверить износ инструмента',
-        'color': '#3498DB',
-    },
-    'Random_Failures': {
-        'rus': 'Случайный отказ',
-        'auto_action': 'Зафиксировать случайный отказ, осмотреть станок',
-        'review_action': 'Проверить станок: возможен случайный отказ',
-        'manual_action': 'Вручную осмотреть станок на случайный отказ',
-        'color': '#95A5A6',
-    },
-}
-
+BASE_INPUT_COLUMNS = [
+    "CEMENT",
+    "BLAST_FURNACE_SLAG",
+    "FLY_ASH",
+    "WATER",
+    "SUPERPLASTICIZER",
+    "COARSE_AGGREGATE",
+    "FINE_AGGREGATE",
+    "AGE",
+]
 
 FEATURE_INFO = {
-    'Type': {
-        'rus': 'Тип детали',
-        'help': 'Категория детали: L, M или H.',
+    "CEMENT": {
+        "label": "Цемент, кг/м³",
+        "short": "Цемент",
+        "help": "Основное вяжущее вещество в бетонной смеси.",
+        "step": 5.0,
     },
-    'Air_Temperature': {
-        'rus': 'Температура воздуха, K',
-        'help': 'Температура воздуха рядом со станком.',
+    "BLAST_FURNACE_SLAG": {
+        "label": "Доменный шлак, кг/м³",
+        "short": "Шлак",
+        "help": "Минеральная добавка. Может заменять часть цемента.",
+        "step": 5.0,
     },
-    'Process_Temperature': {
-        'rus': 'Температура процесса, K',
-        'help': 'Температура в зоне обработки.',
+    "FLY_ASH": {
+        "label": "Зола-уноса, кг/м³",
+        "short": "Зола-уноса",
+        "help": "Минеральная добавка. В составе может отсутствовать.",
+        "step": 5.0,
     },
-    'Rotational_Speed': {
-        'rus': 'Скорость вращения, об/мин',
-        'help': 'Обороты шпинделя.',
+    "WATER": {
+        "label": "Вода, кг/м³",
+        "short": "Вода",
+        "help": "Количество воды для затворения смеси.",
+        "step": 2.0,
     },
-    'Torque': {
-        'rus': 'Крутящий момент, Н·м',
-        'help': 'Нагрузка на инструмент.',
+    "SUPERPLASTICIZER": {
+        "label": "Суперпластификатор, кг/м³",
+        "short": "Суперпластификатор",
+        "help": "Химическая добавка для регулирования подвижности смеси.",
+        "step": 0.5,
     },
-    'Tool_Wear': {
-        'rus': 'Износ инструмента, мин',
-        'help': 'Сколько минут работает инструмент.',
+    "COARSE_AGGREGATE": {
+        "label": "Щебень, кг/м³",
+        "short": "Щебень",
+        "help": "Крупный заполнитель бетонной смеси.",
+        "step": 5.0,
+    },
+    "FINE_AGGREGATE": {
+        "label": "Песок, кг/м³",
+        "short": "Песок",
+        "help": "Мелкий заполнитель бетонной смеси.",
+        "step": 5.0,
+    },
+    "AGE": {
+        "label": "Возраст образца, дней",
+        "short": "Возраст",
+        "help": "Возраст бетона к моменту оценки прочности.",
+        "step": 1.0,
+    },
+}
+
+COMPOSITION_PROFILES = {
+    "Типовая смесь для 28 дней": {
+        "description": (
+            "Базовый состав для первой оценки. Подходит для демонстрации "
+            "расчёта при сроке твердения 28 дней."
+        ),
+        "ranges": {
+            "CEMENT": (300, 380),
+            "BLAST_FURNACE_SLAG": (0, 80),
+            "FLY_ASH": (0, 40),
+            "WATER": (170, 195),
+            "SUPERPLASTICIZER": (3, 8),
+            "COARSE_AGGREGATE": (950, 1050),
+            "FINE_AGGREGATE": (740, 830),
+            "AGE": (28, 28),
+        },
+    },
+    "Смесь с повышенной прочностью": {
+        "description": (
+            "Вариант с большим количеством вяжущего, меньшим расходом воды "
+            "и суперпластификатором. Решение зависит от результата расчёта."
+        ),
+        "ranges": {
+            "CEMENT": (430, 520),
+            "BLAST_FURNACE_SLAG": (40, 140),
+            "FLY_ASH": (0, 30),
+            "WATER": (140, 165),
+            "SUPERPLASTICIZER": (8, 16),
+            "COARSE_AGGREGATE": (900, 1020),
+            "FINE_AGGREGATE": (680, 790),
+            "AGE": (28, 56),
+        },
+    },
+    "Состав с минеральными добавками": {
+        "description": (
+            "Вариант с умеренным количеством цемента, доменным шлаком "
+            "и золой-уносом. Его удобно сравнивать с базовым составом."
+        ),
+        "ranges": {
+            "CEMENT": (230, 310),
+            "BLAST_FURNACE_SLAG": (40, 120),
+            "FLY_ASH": (30, 100),
+            "WATER": (180, 205),
+            "SUPERPLASTICIZER": (1, 6),
+            "COARSE_AGGREGATE": (940, 1050),
+            "FINE_AGGREGATE": (740, 850),
+            "AGE": (28, 28),
+        },
+    },
+    "Контроль через 7 дней": {
+        "description": (
+            "Пример для оценки прочности на раннем сроке твердения. "
+            "По нему удобно увидеть, как возраст влияет на результат."
+        ),
+        "ranges": {
+            "CEMENT": (300, 390),
+            "BLAST_FURNACE_SLAG": (0, 60),
+            "FLY_ASH": (0, 30),
+            "WATER": (165, 190),
+            "SUPERPLASTICIZER": (3, 9),
+            "COARSE_AGGREGATE": (950, 1050),
+            "FINE_AGGREGATE": (740, 830),
+            "AGE": (7, 7),
+        },
     },
 }
 
 
-def format_number(value):
-    if abs(value) >= 100:
-        return f'{value:.0f}'
-    return f'{value:.2f}'
-
-
-def generate_no_failure(rng):
-    """Безопасные параметры, ни одно физическое правило отказа не сработает."""
-    air = float(rng.uniform(297, 302))
-    process = float(min(air + rng.uniform(11, 13), 313.5))
-
-    return {
-        'Type': str(rng.choice(['L', 'M', 'H'])),
-        'Air_Temperature': air,
-        'Process_Temperature': process,
-        'Rotational_Speed': float(rng.uniform(1550, 1800)),
-        'Torque': float(rng.uniform(28, 42)),
-        'Tool_Wear': float(rng.uniform(20, 150)),
-    }
-
-
-def generate_heat_dissipation(rng):
-    """Перегрев: разница температур < 10 K, обороты < 1500, тип L."""
-    air = float(rng.uniform(300, 302))
-    process = float(max(air + rng.uniform(3, 5), 306.0))
-
-    return {
-        'Type': 'L',
-        'Air_Temperature': air,
-        'Process_Temperature': process,
-        'Rotational_Speed': float(rng.uniform(1200, 1300)),
-        'Torque': float(rng.uniform(40, 55)),
-        'Tool_Wear': float(rng.uniform(20, 100)),
-    }
-
-
-def generate_power_failure(rng):
-    """Отказ по мощности: power = 0.10472 * RPM * Torque вне диапазона 4000–8500 Вт."""
-    if rng.random() < 0.5:
-        rpm = float(rng.uniform(1200, 1400))
-        torque = float(rng.uniform(8, 18))
-    else:
-        rpm = float(rng.uniform(2600, 2880))
-        torque = float(rng.uniform(45, 65))
-
-    air = float(rng.uniform(297, 302))
-
-    return {
-        'Type': str(rng.choice(['L', 'M', 'H'])),
-        'Air_Temperature': air,
-        'Process_Temperature': float(air + rng.uniform(11, 13)),
-        'Rotational_Speed': rpm,
-        'Torque': torque,
-        'Tool_Wear': float(rng.uniform(20, 150)),
-    }
-
-
-def generate_overstrain(rng):
-    """Чистая перегрузка: Tool_Wear * Torque > 11000, но мощность не выходит за 3500–9000."""
-    air = float(rng.uniform(297, 302))
-
-    return {
-        'Type': 'L',
-        'Air_Temperature': air,
-        'Process_Temperature': float(air + rng.uniform(11, 13)),
-        'Rotational_Speed': float(rng.uniform(1180, 1280)),
-        'Torque': float(rng.uniform(60, 64)),
-        'Tool_Wear': float(rng.uniform(185, 195)),
-    }
-
-
-def generate_tool_wear(rng):
-    """Износ: Tool_Wear в зоне 200–235 минут."""
-    air = float(rng.uniform(297, 302))
-
-    return {
-        'Type': str(rng.choice(['M', 'H'])),
-        'Air_Temperature': air,
-        'Process_Temperature': float(air + rng.uniform(11, 13)),
-        'Rotational_Speed': float(rng.uniform(1550, 1700)),
-        'Torque': float(rng.uniform(35, 50)),
-        'Tool_Wear': float(rng.uniform(200, 235)),
-    }
-
-
-CLASS_GENERATORS = {
-    'Нет отказа': generate_no_failure,
-    'Перегрев': generate_heat_dissipation,
-    'Отказ по мощности': generate_power_failure,
-    'Перегрузка по моменту': generate_overstrain,
-    'Износ инструмента': generate_tool_wear,
-}
-
-
-CLASS_LABEL_TO_INTERNAL = {
-    'Нет отказа': 'No_Failure',
-    'Перегрев': 'Heat_Dissipation_Failure',
-    'Отказ по мощности': 'Power_Failure',
-    'Перегрузка по моменту': 'Overstrain_Failure',
-    'Износ инструмента': 'Tool_Wear_Failure',
-}
-
-
-@st.cache_resource(show_spinner='Загрузка модели')
+@st.cache_resource(show_spinner="Загрузка модели")
 def load_model():
     return AutoML(results_path=str(MODEL_DIR))
 
 
 @st.cache_data
 def load_config():
-    with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    with open(CONFIG_PATH, "r", encoding="utf-8") as file:
+        return json.load(file)
+
+
+@st.cache_data(show_spinner=False)
+def load_global_feature_importance(model_dir_text):
+    """Ищет экспорт глобальной важности признаков в результатах AutoML.
+
+    Формат файлов зависит от версии mljar-supervised, поэтому функция проверяет
+    несколько типовых названий колонок и не создаёт искусственные значения.
+    """
+    model_dir = Path(model_dir_text)
+
+    if not model_dir.exists():
+        return pd.DataFrame(columns=["feature", "importance"])
+
+    candidates = []
+    csv_paths = sorted(model_dir.rglob("*.csv"))
+
+    for csv_path in csv_paths:
+        if "importance" not in csv_path.name.lower():
+            continue
+
+        try:
+            table = pd.read_csv(csv_path)
+        except Exception:
+            continue
+
+        if table.empty or len(table.columns) < 2:
+            continue
+
+        normalized = {str(column).strip().lower(): column for column in table.columns}
+
+        feature_column = next(
+            (
+                normalized[name]
+                for name in [
+                "feature",
+                "feature_name",
+                "variable",
+                "column",
+                "name",
+            ]
+                if name in normalized
+            ),
+            None,
+        )
+        importance_column = next(
+            (
+                normalized[name]
+                for name in [
+                "importance",
+                "mean_importance",
+                "permutation_importance",
+                "weight",
+                "value",
+            ]
+                if name in normalized
+            ),
+            None,
+        )
+
+        if feature_column is None or importance_column is None:
+            feature_column = table.columns[0]
+            importance_column = table.columns[1]
+
+        parsed = pd.DataFrame({
+            "feature": table[feature_column].astype(str).str.strip().str.upper(),
+            "importance": pd.to_numeric(
+                table[importance_column],
+                errors="coerce",
+            ),
+        }).dropna()
+
+        parsed = parsed.loc[parsed["feature"].isin(BASE_INPUT_COLUMNS)].copy()
+
+        if parsed.empty:
+            continue
+
+        parsed["importance"] = parsed["importance"].abs()
+        parsed = (
+            parsed.groupby("feature", as_index=False)["importance"]
+            .mean()
+            .sort_values("importance", ascending=False)
+        )
+
+        candidates.append(parsed)
+
+    if not candidates:
+        return pd.DataFrame(columns=["feature", "importance"])
+
+    best_candidate = max(
+        candidates,
+        key=lambda table: (len(table), float(table["importance"].sum())),
+    )
+    return best_candidate.reset_index(drop=True)
+
+
+def validate_config(config):
+    required_keys = {
+        "feature_columns",
+        "feature_stats",
+        "prediction_interval",
+        "test_metrics",
+    }
+    missing_keys = required_keys.difference(config)
+
+    if missing_keys:
+        raise ValueError(
+            "В config.json отсутствуют поля: " + ", ".join(sorted(missing_keys))
+        )
+
+    if list(config["feature_columns"]) != BASE_INPUT_COLUMNS:
+        raise ValueError(
+            "Список признаков в config.json не совпадает с приложением. "
+            "Проверьте, что используется модель Concrete Strength."
+        )
+
+    missing_stats = set(BASE_INPUT_COLUMNS).difference(config["feature_stats"])
+    if missing_stats:
+        raise ValueError(
+            "В config.json отсутствуют диапазоны: " + ", ".join(sorted(missing_stats))
+        )
+
+    radius = float(config["prediction_interval"].get("radius", 0))
+    if not np.isfinite(radius) or radius <= 0:
+        raise ValueError("В config.json указан некорректный радиус интервала.")
 
 
 def clear_last_result():
-    if 'last_result' in st.session_state:
-        del st.session_state.last_result
+    st.session_state.pop("last_result", None)
 
 
-def set_machine_inputs(new_inputs, expected_class=None, clear_result=True):
-    st.session_state.inputs = new_inputs.copy()
+def composition_from_profile(profile_name):
+    rng = np.random.default_rng()
+    composition = {}
 
-    for feature, value in new_inputs.items():
-        st.session_state[f'in_{feature}'] = value
+    for feature, (low, high) in COMPOSITION_PROFILES[profile_name]["ranges"].items():
+        value = low if low == high else rng.uniform(low, high)
+        step = FEATURE_INFO[feature]["step"]
+        composition[feature] = float(np.round(value / step) * step)
 
-    if expected_class is not None:
-        st.session_state.expected_class = expected_class
-
-    if clear_result:
-        clear_last_result()
+    return composition
 
 
-def ensure_input_state(feature_columns):
-    if 'expected_class' not in st.session_state:
-        st.session_state.expected_class = 'Нет отказа'
+def composition_from_training_ranges(config):
+    rng = np.random.default_rng()
+    composition = {}
 
-    if 'inputs' not in st.session_state:
-        rng = np.random.default_rng()
-        initial_inputs = generate_no_failure(rng)
-        set_machine_inputs(
-            initial_inputs,
-            expected_class='Нет отказа',
-            clear_result=False,
+    for feature in BASE_INPUT_COLUMNS:
+        stats = config["feature_stats"][feature]
+        low = float(stats["min"])
+        high = float(stats["max"])
+        step = FEATURE_INFO[feature]["step"]
+
+        value = rng.uniform(low, high)
+        composition[feature] = float(np.round(value / step) * step)
+
+    return composition
+
+
+def set_composition(composition):
+    for feature, value in composition.items():
+        st.session_state[f"input_{feature}"] = float(value)
+    clear_last_result()
+
+
+def initialise_state():
+    if "composition_profile" not in st.session_state:
+        st.session_state.composition_profile = next(iter(COMPOSITION_PROFILES))
+
+    first_input_key = f"input_{BASE_INPUT_COLUMNS[0]}"
+    if first_input_key not in st.session_state:
+        set_composition(
+            composition_from_profile(st.session_state.composition_profile)
         )
-        return
 
-    for feature in feature_columns:
-        widget_key = f'in_{feature}'
+    if "required_strength_input" not in st.session_state:
+        st.session_state.required_strength_input = 40.0
 
-        if feature in st.session_state.inputs and widget_key not in st.session_state:
-            st.session_state[widget_key] = st.session_state.inputs[feature]
-
-
-def sync_inputs_from_widgets(feature_columns):
-    for feature in feature_columns:
-        widget_key = f'in_{feature}'
-
-        if widget_key in st.session_state:
-            st.session_state.inputs[feature] = st.session_state[widget_key]
+    if "safety_margin_input" not in st.session_state:
+        st.session_state.safety_margin_input = 2.0
 
 
-def step1_validate(inputs, config):
-    """Шаг 1. Валидация по типу, диапазону, полноте."""
+def reset_application_state():
+    """Возвращает форму к стартовым значениям и очищает текущий расчёт.
+
+    Журнал решений не удаляется, потому что это история уже выполненных расчётов.
+    """
+    keys_to_reset = [
+        "composition_profile",
+        "required_strength_input",
+        "safety_margin_input",
+        "cost_miss_input",
+        "cost_test_input",
+        "last_result",
+    ]
+
+    keys_to_reset.extend(f"input_{feature}" for feature in BASE_INPUT_COLUMNS)
+
+    for key in keys_to_reset:
+        st.session_state.pop(key, None)
+
+    # После сброса не выполняем стартовый расчёт автоматически.
+    # Поэтому нижний блок с результатом и восемью шагами исчезает.
+    st.session_state["hide_result_after_reset"] = True
+    initialise_state()
+
+
+def get_inputs_from_state():
+    return {
+        feature: float(st.session_state[f"input_{feature}"])
+        for feature in BASE_INPUT_COLUMNS
+    }
+
+
+def format_number(value):
+    return f"{value:.0f}" if abs(value) >= 100 else f"{value:.1f}"
+
+
+def slider_bounds(feature, config):
+    stats = config["feature_stats"][feature]
+    max_train = float(stats["max"])
+    max_input = max(max_train * 1.2, max_train + 10)
+
+    if feature == "AGE":
+        max_input = max(max_input, 365.0)
+
+    return 0.0, float(max_input)
+
+
+def step1_validate(inputs):
     errors = []
 
-    for feature in config['feature_columns']:
-        if feature not in inputs:
-            errors.append(f'{feature}: отсутствует')
-            continue
+    for feature in BASE_INPUT_COLUMNS:
+        value = inputs.get(feature)
 
-        value = inputs[feature]
-        stats = config['feature_stats'][feature]
+        if value is None:
+            errors.append(f"Не заполнено поле «{FEATURE_INFO[feature]['label']}».")
+        elif not np.isfinite(value):
+            errors.append(
+                f"Поле «{FEATURE_INFO[feature]['label']}» содержит некорректное число."
+            )
+        elif value < 0:
+            errors.append(
+                f"Поле «{FEATURE_INFO[feature]['label']}» не может быть отрицательным."
+            )
 
-        if stats['dtype'] == 'numeric':
-            if value is None or (isinstance(value, float) and np.isnan(value)):
-                errors.append(f'{feature}: пропуск значения')
-            elif value < stats['min']:
-                errors.append(f'{feature}: ниже допустимого ({value:.2f} < {stats["min"]:.2f})')
-            elif value > stats['max']:
-                errors.append(f'{feature}: выше допустимого ({value:.2f} > {stats["max"]:.2f})')
-
-        elif stats['dtype'] == 'categorical':
-            if value not in stats['values']:
-                errors.append(f'{feature}: значение {value} не в справочнике')
-
-    return {
-        'ok': len(errors) == 0,
-        'errors': errors,
-    }
+    return {"ok": not errors, "errors": errors}
 
 
-def step2_early_rules(inputs):
-    """Шаг 2. Ранние жёсткие правила до модели."""
-    triggered = []
+def step2_checks(inputs, config):
+    """Разделяет физические запреты и предупреждения о выходе за обучающий диапазон."""
+    hard_rules = []
+    range_warnings = []
 
-    if inputs.get('Tool_Wear', 0) >= 190:
-        triggered.append({
-            'name': 'critical_tool_wear',
-            'message': f'Износ инструмента {inputs["Tool_Wear"]:.0f} мин в зоне риска — '
-                       f'нужна проверка оператора',
-        })
+    if inputs["WATER"] < 1:
+        hard_rules.append("В составе нет воды. Проверьте дозирование или ввод данных.")
 
-    if inputs.get('Torque', 0) < 3:
-        triggered.append({
-            'name': 'low_torque',
-            'message': f'Крутящий момент {inputs["Torque"]:.2f} Н·м слишком низкий — '
-                       f'нужна проверка датчика',
-        })
-
-    return triggered
-
-
-def step4_predict(model, inputs, feature_columns, classes):
-    """Шаг 4. Оценка модели."""
-    x = pd.DataFrame([{c: inputs[c] for c in feature_columns}])
-    proba_arr = model.predict_proba(x)[0]
-    proba = dict(zip(classes, proba_arr.tolist()))
-    pred = max(proba, key=proba.get)
-    confidence = float(proba[pred])
-
-    return pred, proba, confidence
-
-
-def step5_apply_thresholds(confidence, t_low, t_high):
-    """Шаг 5а. Пороги в зоны решений."""
-    if confidence >= t_high:
-        return 'auto_decision'
-
-    if confidence >= t_low:
-        return 'recommendation'
-
-    return 'manual_review'
-
-
-def step5_late_rules(prediction, probabilities, zone):
-    """Шаг 5б. Поздние правила после модели."""
-    triggered = []
-
-    sorted_probs = sorted(probabilities.values(), reverse=True)
-    top1 = sorted_probs[0]
-    top2 = sorted_probs[1] if len(sorted_probs) > 1 else 0
-
-    if top1 - top2 < 0.15:
-        triggered.append({
-            'name': 'close_probabilities',
-            'message': f'Модель сомневается: разница между двумя главными вариантами '
-                       f'только {top1 - top2:.1%}. Нужна проверка оператора',
-        })
-        return 'manual_review', triggered
-
-    tool_wear_prob = probabilities.get('Tool_Wear_Failure', 0)
-
-    if prediction != 'Tool_Wear_Failure' and tool_wear_prob > 0.05:
-        triggered.append({
-            'name': 'tool_wear_suspicion',
-            'message': f'Есть риск износа инструмента: {tool_wear_prob:.1%}. '
-                       f'Нужна проверка оператора',
-        })
-        return 'manual_review', triggered
-
-    if prediction == 'No_Failure':
-        failure_prob_sum = sum(
-            p for c, p in probabilities.items() if c != 'No_Failure'
+    if inputs["CEMENT"] < 100:
+        hard_rules.append(
+            "Цемента меньше 100 кг/м³. Такой состав не подходит для расчёта прочности."
         )
 
-        if failure_prob_sum > 0.05:
-            triggered.append({
-                'name': 'failure_suspicion',
-                'message': f'Модель выбрала норму, но общий риск отказов {failure_prob_sum:.1%}. '
-                           f'Нужна проверка оператора',
-            })
-            return 'manual_review', triggered
+    if inputs["AGE"] < 1:
+        hard_rules.append(
+            "Возраст образца меньше суток. Оценка прочности в этот момент некорректна."
+        )
 
-    if prediction == 'Tool_Wear_Failure' and zone == 'auto_decision':
-        triggered.append({
-            'name': 'tool_wear_forced_review',
-            'message': 'Предсказан износ инструмента. Нужна проверка оператора',
-        })
-        return 'recommendation', triggered
+    for feature in BASE_INPUT_COLUMNS:
+        stats = config["feature_stats"][feature]
+        value = float(inputs[feature])
+        low = float(stats["min"])
+        high = float(stats["max"])
 
-    return zone, triggered
+        if value < low or value > high:
+            range_warnings.append(
+                f"«{FEATURE_INFO[feature]['label']}» = {value:.1f} вне диапазона "
+                f"обучения {format_number(low)} - {format_number(high)}."
+            )
 
-
-def step5_physics_rules(inputs, prediction):
-    """Шаг 5в. Физические правила противоречий."""
-    triggered = []
-
-    air = inputs.get('Air_Temperature', 0)
-    process = inputs.get('Process_Temperature', 0)
-    rpm = inputs.get('Rotational_Speed', 0)
-    torque = inputs.get('Torque', 0)
-    tool_wear = inputs.get('Tool_Wear', 0)
-    machine_type = inputs.get('Type', 'L')
-
-    temp_diff = process - air
-
-    if temp_diff < 10 and rpm < 1500 and machine_type == 'L':
-        if prediction != 'Heat_Dissipation_Failure':
-            triggered.append({
-                'name': 'physics_heat_risk',
-                'message': 'Параметры похожи на перегрев. Нужна проверка оператора',
-            })
-
-    if rpm > 0 and torque > 0:
-        power = 0.10472 * rpm * torque
-
-        if power < 4000 or power > 8500:
-            if prediction != 'Power_Failure':
-                triggered.append({
-                    'name': 'physics_power_risk',
-                    'message': 'Мощность вне безопасной зоны. Нужна проверка оператора',
-                })
-
-    overstrain_limit = {
-        'L': 10000,
-        'M': 11000,
-        'H': 12000,
-    }.get(machine_type, 10000)
-
-    if tool_wear * torque > overstrain_limit:
-        if prediction != 'Overstrain_Failure':
-            triggered.append({
-                'name': 'physics_overstrain_risk',
-                'message': 'Нагрузка на инструмент слишком высокая. Нужна проверка оператора',
-            })
-
-    if tool_wear >= 180 and prediction != 'Tool_Wear_Failure':
-        triggered.append({
-            'name': 'physics_tool_wear_zone',
-            'message': 'Износ инструмента близок к опасной зоне. Нужна проверка оператора',
-        })
-
-    if triggered:
-        return 'manual_review', triggered
-
-    return None, triggered
+    return hard_rules, range_warnings
 
 
-def has_risk_signals(inputs):
-    """Финальная страховка: есть ли в параметрах хоть один признак риска."""
-    air = inputs.get('Air_Temperature', 0)
-    process = inputs.get('Process_Temperature', 0)
-    rpm = inputs.get('Rotational_Speed', 0)
-    torque = inputs.get('Torque', 0)
-    tool_wear = inputs.get('Tool_Wear', 0)
-    machine_type = inputs.get('Type', 'L')
-
-    if tool_wear >= 180:
-        return True, 'износ инструмента близок к опасной зоне'
-
-    if process - air < 10 and rpm < 1500 and machine_type == 'L':
-        return True, 'параметры похожи на перегрев'
-
-    if rpm > 0 and torque > 0:
-        power = 0.10472 * rpm * torque
-
-        if power < 4000 or power > 8500:
-            return True, 'мощность вне безопасной зоны'
-
-    overstrain_limit = {'L': 10000, 'M': 11000, 'H': 12000}.get(machine_type, 10000)
-
-    if tool_wear * torque > overstrain_limit:
-        return True, 'нагрузка на инструмент слишком высокая'
-
-    return False, None
+def step4_predict(model, inputs, feature_columns):
+    model_input = pd.DataFrame([
+        {feature: inputs[feature] for feature in feature_columns}
+    ])
+    return float(model.predict(model_input)[0])
 
 
-def step6_business_logic(zone, prediction):
-    """Шаг 6. Зона задаёт срочность, класс задаёт действие."""
-    info = CLASS_INFO[prediction]
+def step5_compare_with_policy(
+        prediction,
+        interval_radius,
+        required_strength,
+        safety_margin,
+):
+    lower = prediction - interval_radius
+    upper = prediction + interval_radius
+    automatic_threshold = required_strength + safety_margin
 
-    zone_prefix = {
-        'auto_decision': 'Авто-решение',
-        'recommendation': 'Рекомендация оператору',
-        'manual_review': 'Ручная проверка',
-    }
-
-    action_map = {
-        'auto_decision': info['auto_action'],
-        'recommendation': info['review_action'],
-        'manual_review': info['manual_action'],
-    }
-
-    if zone == 'auto_decision' and prediction == 'No_Failure':
-        severity = 'low'
-    elif zone == 'manual_review':
-        severity = 'high'
+    if upper < required_strength:
+        status = "confident_fail"
+        reason = (
+            f"Весь расчётный диапазон находится ниже требования {required_strength:.1f} МПа. "
+            f"Даже при благоприятной оценке прочность достигает только {upper:.1f} МПа."
+        )
+    elif lower >= automatic_threshold:
+        status = "confident_pass"
+        reason = (
+            f"Весь расчётный диапазон находится выше границы рекомендации "
+            f"{automatic_threshold:.1f} МПа. Даже осторожная оценка составляет "
+            f"{lower:.1f} МПа."
+        )
     else:
-        severity = 'medium'
-
-    if zone == 'manual_review' and prediction == 'No_Failure':
-        action_text = 'Осмотреть станок, модель сомневается в норме'
-    else:
-        action_text = action_map[zone]
-
-    label = f'{zone_prefix[zone]}: {action_text}'
+        status = "uncertain"
+        reason = (
+            f"Расчётный диапазон от {lower:.1f} до {upper:.1f} МПа пересекает "
+            "требование или границу рекомендации. По одному прогнозу пока нельзя "
+            "уверенно выбрать действие."
+        )
 
     return {
-        'execution_type': zone,
-        'label': label,
-        'severity': severity,
-        'class_rus': info['rus'],
-        'class_color': info['color'],
+        "status": status,
+        "lower": lower,
+        "upper": upper,
+        "automatic_threshold": automatic_threshold,
+        "reason": reason,
+    }
+
+
+def step6_choose_action(assessment):
+    if assessment["status"] == "confident_pass":
+        return {
+            "code": "recommend_composition",
+            "title": "Рекомендовать состав для пробного замеса",
+            "message": (
+                "Весь расчётный диапазон выше границы рекомендации. "
+                "Состав можно направить на пробный замес и подтверждающее испытание."
+            ),
+            "severity": "success",
+        }
+
+    if assessment["status"] == "confident_fail":
+        return {
+            "code": "adjust_composition",
+            "title": "Скорректировать состав смеси до замеса",
+            "message": (
+                "Даже благоприятная оценка не достигает требуемой прочности. "
+                "Состав нужно изменить и рассчитать ещё раз."
+            ),
+            "severity": "error",
+        }
+
+    return {
+        "code": "laboratory_test",
+        "title": "Назначить лабораторное испытание",
+        "message": (
+            "Прогноз находится в пограничной области. Для решения нужен "
+            "контрольный образец и лабораторное испытание."
+        ),
+        "severity": "warning",
     }
 
 
 def step8_log(record):
-    """Шаг 8. Логирование решения."""
-    with open(LOG_PATH, 'a', encoding='utf-8') as f:
-        f.write(json.dumps(record, ensure_ascii=False, default=str) + '\n')
+    with open(LOG_PATH, "a", encoding="utf-8") as file:
+        file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
-def _parse_ts(value):
-    """Безопасно парсит timestamp в datetime, возвращает None при ошибке."""
-    if not value:
-        return None
+def run_pipeline(
+        inputs,
+        config,
+        model,
+        required_strength,
+        safety_margin,
+        composition_profile,
+):
+    st.session_state["hide_result_after_reset"] = False
+    timestamp = datetime.now().isoformat(timespec="seconds")
+    validation = step1_validate(inputs)
+
+    if not validation["ok"]:
+        record = {
+            "timestamp": timestamp,
+            "composition_profile": composition_profile,
+            "input": inputs,
+            "validation": validation,
+            "hard_rules": [],
+            "range_warnings": [],
+            "action": {
+                "code": "input_error",
+                "title": "Исправить входные данные",
+                "message": "Расчёт не выполнен, потому что в форме есть ошибки.",
+                "severity": "error",
+            },
+            "feedback": None,
+        }
+        step8_log(record)
+        return record
+
+    hard_rules, range_warnings = step2_checks(inputs, config)
+
+    if hard_rules:
+        record = {
+            "timestamp": timestamp,
+            "composition_profile": composition_profile,
+            "input": inputs,
+            "validation": validation,
+            "hard_rules": hard_rules,
+            "range_warnings": range_warnings,
+            "action": {
+                "code": "data_check",
+                "title": "Проверить состав и входные параметры",
+                "message": (
+                    "Расчёт не выполнен, потому что в составе есть физически "
+                    "некорректные значения."
+                ),
+                "severity": "warning",
+            },
+            "feedback": None,
+        }
+        step8_log(record)
+        return record
+
+    prediction = step4_predict(model, inputs, config["feature_columns"])
+    interval_radius = float(config["prediction_interval"]["radius"])
+    assessment = step5_compare_with_policy(
+        prediction=prediction,
+        interval_radius=interval_radius,
+        required_strength=required_strength,
+        safety_margin=safety_margin,
+    )
+    action = step6_choose_action(assessment)
+
+    record = {
+        "timestamp": timestamp,
+        "composition_profile": composition_profile,
+        "input": inputs,
+        "validation": validation,
+        "hard_rules": [],
+        "range_warnings": range_warnings,
+        "prediction": prediction,
+        "interval_radius": interval_radius,
+        "required_strength": required_strength,
+        "safety_margin": safety_margin,
+        "assessment": assessment,
+        "action": action,
+        "feedback": None,
+    }
+    step8_log(record)
+    return record
+
+
+def sample_composition(profile_name, rng):
+    """Создаёт один состав из диапазонов выбранного учебного профиля."""
+    composition = {}
+
+    for feature, (low, high) in COMPOSITION_PROFILES[profile_name]["ranges"].items():
+        value = low if low == high else rng.uniform(low, high)
+        step = FEATURE_INFO[feature]["step"]
+        composition[feature] = float(np.round(value / step) * step)
+
+    return composition
+
+
+def find_scenario_composition(
+        model,
+        config,
+        required_strength,
+        safety_margin,
+        target_status,
+        max_attempts=120,
+):
+    """Подбирает учебный пример по фактическому расчёту текущей модели.
+
+    Не предполагает заранее, в какую зону попадёт состав. Проверка идёт
+    через ту же модель и те же границы, что используются в интерфейсе.
+    Количество попыток ограничено, чтобы кнопка оставалась отзывчивой.
+    """
+    profiles_by_status = {
+        "confident_fail": [
+            "Состав с минеральными добавками",
+            "Контроль через 7 дней",
+        ],
+        "uncertain": [
+            "Типовая смесь для 28 дней",
+            "Состав с минеральными добавками",
+        ],
+        "confident_pass": [
+            "Смесь с повышенной прочностью",
+            "Типовая смесь для 28 дней",
+        ],
+    }
+
+    rng = np.random.default_rng()
+    candidate_profiles = profiles_by_status[target_status]
+
+    for profile_name in candidate_profiles:
+        for _ in range(max_attempts):
+            composition = sample_composition(profile_name, rng)
+            prediction = step4_predict(model, composition, config["feature_columns"])
+            assessment = step5_compare_with_policy(
+                prediction=prediction,
+                interval_radius=float(config["prediction_interval"]["radius"]),
+                required_strength=required_strength,
+                safety_margin=safety_margin,
+            )
+
+            if assessment["status"] == target_status:
+                return composition, profile_name
+
+    return None, None
+
+
+def build_no_water_scenario():
+    """Создаёт намеренно некорректный набор для демонстрации ранней проверки."""
+    return {
+        "CEMENT": 340.0,
+        "BLAST_FURNACE_SLAG": 0.0,
+        "FLY_ASH": 0.0,
+        "WATER": 0.0,
+        "SUPERPLASTICIZER": 5.0,
+        "COARSE_AGGREGATE": 980.0,
+        "FINE_AGGREGATE": 790.0,
+        "AGE": 28.0,
+    }
+
+
+def apply_and_calculate_scenario(
+        composition,
+        profile_name,
+        model,
+        config,
+        required_strength,
+        safety_margin,
+):
+    set_composition(composition)
+    st.session_state.last_result = run_pipeline(
+        inputs=composition,
+        config=config,
+        model=model,
+        required_strength=required_strength,
+        safety_margin=safety_margin,
+        composition_profile=profile_name,
+    )
+
+
+def parse_timestamp(value):
     try:
         return datetime.fromisoformat(value)
-    except (ValueError, TypeError):
+    except (TypeError, ValueError):
         return None
-
-
-def cleanup_old_records():
-    """Удаляет из журнала записи старше LOG_RETENTION_HOURS.
-
-    Вызывается при каждом чтении журнала. Перезаписывает файл
-    только если что-то реально устарело — чтобы не дёргать диск зря.
-    """
-    if not LOG_PATH.exists():
-        return 0
-
-    cutoff = datetime.now() - timedelta(hours=LOG_RETENTION_HOURS)
-    fresh_records = []
-    removed = 0
-
-    with open(LOG_PATH, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-
-            try:
-                record = json.loads(line)
-            except json.JSONDecodeError:
-                removed += 1
-                continue
-
-            ts = _parse_ts(record.get('timestamp'))
-
-            if ts is None or ts >= cutoff:
-                fresh_records.append(record)
-            else:
-                removed += 1
-
-    if removed > 0:
-        with open(LOG_PATH, 'w', encoding='utf-8') as f:
-            for record in fresh_records:
-                f.write(json.dumps(record, ensure_ascii=False, default=str) + '\n')
-
-    return removed
 
 
 def read_log():
-    cleanup_old_records()
-
     if not LOG_PATH.exists():
         return []
 
+    cutoff = datetime.now() - timedelta(hours=LOG_RETENTION_HOURS)
     records = []
+    rewrite_file = False
 
-    with open(LOG_PATH, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
+    with open(LOG_PATH, "r", encoding="utf-8") as file:
+        for line in file:
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                rewrite_file = True
+                continue
 
-            if line:
-                records.append(json.loads(line))
+            timestamp = parse_timestamp(record.get("timestamp"))
+            if timestamp is not None and timestamp < cutoff:
+                rewrite_file = True
+                continue
+
+            records.append(record)
+
+    if rewrite_file:
+        with open(LOG_PATH, "w", encoding="utf-8") as file:
+            for record in records:
+                file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
     return records
 
@@ -581,871 +750,1042 @@ def update_feedback(timestamp, feedback):
     records = read_log()
 
     for record in records:
-        if record.get('timestamp') == timestamp:
-            record['feedback'] = feedback
+        if record.get("timestamp") == timestamp:
+            record["feedback"] = feedback
 
-    with open(LOG_PATH, 'w', encoding='utf-8') as f:
+    with open(LOG_PATH, "w", encoding="utf-8") as file:
         for record in records:
-            f.write(json.dumps(record, ensure_ascii=False, default=str) + '\n')
+            file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
-def run_pipeline(inputs, config, model, t_low, t_high, expected_class=None):
-    """Полный прогон контура."""
-    timestamp = datetime.now().isoformat(timespec='seconds')
+def render_action(action):
+    if action["severity"] == "success":
+        st.success(f"**{action['title']}**\n\n{action['message']}")
+    elif action["severity"] == "warning":
+        st.warning(f"**{action['title']}**\n\n{action['message']}")
+    else:
+        st.error(f"**{action['title']}**\n\n{action['message']}")
 
-    validation = step1_validate(inputs, config)
 
-    if not validation['ok']:
-        record = {
-            'timestamp': timestamp,
-            'expected_class': expected_class,
-            'input': inputs,
-            'validation': validation,
-            'action': {
-                'execution_type': 'safe_default',
-                'label': 'Данные не прошли валидацию, модель не вызывалась',
-                'severity': 'high',
-            },
-            'feedback': None,
-        }
-
-        step8_log(record)
-        return record
-
-    early = step2_early_rules(inputs)
-
-    if early:
-        action_label = 'Ранняя проверка: ' + early[0]['message']
-
-        record = {
-            'timestamp': timestamp,
-            'expected_class': expected_class,
-            'input': inputs,
-            'validation': validation,
-            'early_rules': early,
-            'action': {
-                'execution_type': 'early_rule',
-                'label': action_label,
-                'severity': 'high',
-            },
-            'feedback': None,
-        }
-
-        step8_log(record)
-        return record
-
-    pred, proba, conf = step4_predict(
-        model,
-        inputs,
-        config['feature_columns'],
-        config['classes'],
+def render_zone_visual(
+        required_strength,
+        automatic_threshold,
+        prediction,
+        lower,
+        upper,
+        active_status,
+):
+    """Показывает три различимые зоны и положение текущего прогноза."""
+    scale_min = max(
+        0.0,
+        min(required_strength - 15.0, lower - 5.0, prediction - 5.0),
+    )
+    scale_max = max(
+        automatic_threshold + 15.0,
+        upper + 5.0,
+        prediction + 5.0,
     )
 
-    zone = step5_apply_thresholds(conf, t_low, t_high)
-    zone_after, late = step5_late_rules(pred, proba, zone)
+    if scale_max - scale_min < 20:
+        scale_max = scale_min + 20
 
-    physics_zone, physics_rules = step5_physics_rules(inputs, pred)
+    fig = go.Figure()
+    zone_y0, zone_y1 = 0.40, 0.60
 
-    if physics_zone is not None:
-        zone_after = physics_zone
-        late = late + physics_rules
+    # Цвета подобраны так, чтобы зоны читались и на тёмном фоне.
+    zones = [
+        (scale_min, required_strength, "#B42318"),
+        (required_strength, automatic_threshold, "#B54708"),
+        (automatic_threshold, scale_max, "#067647"),
+    ]
 
-    risk_present, risk_reason = has_risk_signals(inputs)
+    for x0, x1, color in zones:
+        fig.add_shape(
+            type="rect",
+            x0=x0,
+            x1=x1,
+            y0=zone_y0,
+            y1=zone_y1,
+            fillcolor=color,
+            opacity=0.95,
+            line_width=0,
+        )
 
-    if risk_present and zone_after == 'auto_decision' and pred == 'No_Failure':
-        zone_after = 'manual_review'
-        late = late + [{
-            'name': 'risk_signal_block',
-            'message': f'Есть признак риска: {risk_reason}. Авто-решение заблокировано',
-        }]
+    # Белая полоса — 90% интервал, ромб — точечный прогноз.
+    fig.add_trace(
+        go.Scatter(
+            x=[lower, upper],
+            y=[0.5, 0.5],
+            mode="lines+markers",
+            line=dict(color="#FFFFFF", width=8),
+            marker=dict(color="#FFFFFF", size=8),
+            hovertemplate="90% интервал<br>%{x:.1f} МПа<extra></extra>",
+            showlegend=False,
+        )
+    )
 
-    action = step6_business_logic(zone_after, pred)
+    fig.add_trace(
+        go.Scatter(
+            x=[prediction],
+            y=[0.5],
+            mode="markers",
+            marker=dict(
+                color="#111827",
+                size=18,
+                symbol="diamond",
+                line=dict(color="#FFFFFF", width=2),
+            ),
+            hovertemplate=f"Прогноз модели<br>{prediction:.1f} МПа<extra></extra>",
+            showlegend=False,
+        )
+    )
 
-    record = {
-        'timestamp': timestamp,
-        'expected_class': expected_class,
-        'input': inputs,
-        'validation': validation,
-        'early_rules': early,
-        'prediction': pred,
-        'probabilities': proba,
-        'confidence': conf,
-        'zone_initial': zone,
-        'late_rules': late,
-        'zone_final': zone_after,
-        'action': action,
-        'thresholds': {
-            't_low': t_low,
-            't_high': t_high,
+    fig.add_vline(
+        x=required_strength,
+        line_dash="dash",
+        line_color="#FFFFFF",
+        line_width=2,
+    )
+    fig.add_vline(
+        x=automatic_threshold,
+        line_dash="dash",
+        line_color="#FFFFFF",
+        line_width=2,
+    )
+
+    fig.add_annotation(
+        x=prediction,
+        y=0.84,
+        text=f"Прогноз {prediction:.1f} МПа",
+        showarrow=False,
+        font=dict(color="#FFFFFF", size=13),
+    )
+
+    fig.update_layout(
+        height=165,
+        margin=dict(l=8, r=8, t=24, b=30),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        hovermode="x",
+        font=dict(color="#D1D5DB"),
+    )
+    fig.update_xaxes(
+        title="Прочность бетона, МПа",
+        range=[scale_min, scale_max],
+        showgrid=False,
+        zeroline=False,
+        tickfont=dict(color="#D1D5DB"),
+        title_font=dict(color="#D1D5DB"),
+    )
+    fig.update_yaxes(
+        range=[0, 1],
+        visible=False,
+        fixedrange=True,
+    )
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config={"displayModeBar": False},
+    )
+
+    cards = [
+        {
+            "key": "confident_fail",
+            "title": "Красная зона",
+            "range": f"Ниже {required_strength:.1f} МПа",
+            "action": "Скорректировать состав смеси",
+            "background": "#3A1718",
+            "border": "#EF4444",
         },
-        'feedback': None,
-    }
+        {
+            "key": "uncertain",
+            "title": "Жёлтая зона",
+            "range": f"От {required_strength:.1f} до {automatic_threshold:.1f} МПа",
+            "action": "Назначить лабораторное испытание",
+            "background": "#3A2A12",
+            "border": "#F59E0B",
+        },
+        {
+            "key": "confident_pass",
+            "title": "Зелёная зона",
+            "range": f"От {automatic_threshold:.1f} МПа",
+            "action": "Рекомендовать состав для пробного замеса",
+            "background": "#133326",
+            "border": "#22C55E",
+        },
+    ]
 
-    step8_log(record)
-    return record
+    columns = st.columns(3)
+    for column, card in zip(columns, cards):
+        is_active = card["key"] == active_status
+        outline = f"3px solid {card['border']}" if is_active else "1px solid #3F4654"
+        state = "Текущий результат" if is_active else "Зона решения"
+
+        with column:
+            st.markdown(
+                f"""
+                    <div style="
+                        min-height: 138px;
+                        padding: 14px 15px;
+                        border-radius: 9px;
+                        border: {outline};
+                        background: {card['background']};
+                    ">
+                        <div style="
+                            font-size: 12px;
+                            color: #C7CEDA;
+                            margin-bottom: 7px;
+                        ">{state}</div>
+                        <div style="
+                            font-size: 18px;
+                            font-weight: 700;
+                            margin-bottom: 7px;
+                            color: {card['border']};
+                        ">{card['title']}</div>
+                        <div style="font-size: 14px; margin-bottom: 8px;">
+                            {card['range']}
+                        </div>
+                        <div style="font-size: 13px; color: #E5E7EB;">
+                            {card['action']}
+                        </div>
+                    </div>
+                    """,
+                unsafe_allow_html=True,
+            )
+
+    st.caption(
+        "Белая линия показывает 90% интервал. Чёрный ромб показывает точечный прогноз. "
+        "Пунктирные линии отмечают требуемую прочность и границу автоматической рекомендации."
+    )
+
+
+def render_global_feature_importance():
+    importance = load_global_feature_importance(str(MODEL_DIR))
+
+    if importance.empty:
+        st.caption(
+            "Файл с глобальной важностью признаков AutoML не найден. "
+            "После повторного обучения с explain_level=1 он появится в папке модели."
+        )
+        return
+
+    display = importance.copy()
+    display["Параметр"] = display["feature"].map(
+        lambda feature: FEATURE_INFO.get(
+            feature,
+            {"short": feature},
+        )["short"]
+    )
+    display = display[["Параметр", "importance"]].head(3)
+    display = display.rename(columns={"importance": "Важность"})
+
+    st.write("Три параметра, которые сильнее всего учитывает итоговая модель")
+    st.dataframe(display, width="stretch", hide_index=True)
+
+
+def render_pipeline_trace(result, config):
+    with st.expander("Расчёты по 8 шагам системы", expanded=True):
+        st.markdown("### Шаг 1. Проверка входных данных")
+        st.write(
+            "Проверяются заполненность полей, числовой формат и отсутствие "
+            "отрицательных значений."
+        )
+
+        input_rows = pd.DataFrame([
+            {
+                "Параметр": FEATURE_INFO[feature]["label"],
+                "Введено": f"{float(result['input'][feature]):.1f}",
+                "Статус": (
+                    "корректно"
+                    if float(result["input"][feature]) >= 0
+                    else "ошибка"
+                ),
+            }
+            for feature in BASE_INPUT_COLUMNS
+        ])
+        st.dataframe(input_rows, width="stretch", hide_index=True)
+
+        if not result["validation"]["ok"]:
+            st.error("Во входных данных есть ошибки.")
+            for error in result["validation"]["errors"]:
+                st.write(f"• {error}")
+
+            st.markdown("### Шаг 8. Запись результата")
+            st.code(
+                f"timestamp = {result['timestamp']}\nstatus = input_error",
+                language="text",
+            )
+            return
+
+        st.success("Входные данные прошли проверку.")
+
+        st.markdown("### Шаг 2. Физические ограничения и область обучения")
+        st.write(
+            "Сначала отсекаются физически невозможные значения. Затем каждый параметр "
+            "сравнивается с диапазоном обучающего набора. Выход за обучающий диапазон "
+            "не останавливает расчёт, но отмечается как предупреждение."
+        )
+
+        range_rows = []
+        for feature in BASE_INPUT_COLUMNS:
+            stats = config["feature_stats"][feature]
+            value = float(result["input"][feature])
+            train_min = float(stats["min"])
+            train_max = float(stats["max"])
+            is_within = train_min <= value <= train_max
+
+            range_rows.append({
+                "Параметр": FEATURE_INFO[feature]["short"],
+                "Введено": f"{value:.1f}",
+                "Диапазон обучения": f"от {train_min:.1f} до {train_max:.1f}",
+                "Статус": "в диапазоне" if is_within else "вне диапазона",
+            })
+
+        st.dataframe(pd.DataFrame(range_rows), width="stretch", hide_index=True)
+
+        if result.get("hard_rules"):
+            st.warning("Расчёт модели остановлен.")
+            for rule in result["hard_rules"]:
+                st.write(f"• {rule}")
+
+            st.markdown("### Шаг 8. Запись результата")
+            st.code(
+                f"timestamp = {result['timestamp']}\nstatus = data_check",
+                language="text",
+            )
+            return
+
+        if result.get("range_warnings"):
+            st.warning(
+                "Расчёт выполнен с предупреждением. Часть параметров выходит "
+                "за диапазон обучающих данных."
+            )
+            for warning in result["range_warnings"]:
+                st.write(f"• {warning}")
+        else:
+            st.success("Параметры находятся в диапазонах обучающих данных.")
+
+        st.markdown("### Шаг 3. Формирование входного вектора")
+        st.write(
+            "Формируется одна строка из восьми исходных параметров. "
+            "Новые признаки и скрытые правила не добавляются."
+        )
+        model_input = pd.DataFrame([{
+            FEATURE_INFO[feature]["short"]: result["input"][feature]
+            for feature in BASE_INPUT_COLUMNS
+        }])
+        st.dataframe(model_input, width="stretch", hide_index=True)
+
+        st.markdown("### Шаг 4. Расчёт прогнозной прочности")
+        st.write(
+            "AutoML-модель получает входной вектор и возвращает оценку прочности "
+            "на сжатие к заданному возрасту образца."
+        )
+        prediction = float(result["prediction"])
+        st.code(f"ŷ = model(X) = {prediction:.1f} МПа", language="text")
+        st.success(f"Прогнозная прочность составляет {prediction:.1f} МПа.")
+
+        with st.expander("Глобальная важность признаков", expanded=False):
+            render_global_feature_importance()
+
+        st.markdown("### Шаг 5. Интервал и технологические границы")
+        st.write(
+            "К прогнозу добавляется радиус 90% интервала. Затем нижняя и верхняя "
+            "границы сравниваются с требуемой прочностью и запасом."
+        )
+
+        radius = float(result["interval_radius"])
+        lower = float(result["assessment"]["lower"])
+        upper = float(result["assessment"]["upper"])
+        required = float(result["required_strength"])
+        margin = float(result["safety_margin"])
+        automatic = float(result["assessment"]["automatic_threshold"])
+
+        calculations = pd.DataFrame([
+            {
+                "Расчёт": "Нижняя граница интервала",
+                "Подстановка": f"{prediction:.1f} - {radius:.1f}",
+                "Результат": f"{lower:.1f} МПа",
+            },
+            {
+                "Расчёт": "Верхняя граница интервала",
+                "Подстановка": f"{prediction:.1f} + {radius:.1f}",
+                "Результат": f"{upper:.1f} МПа",
+            },
+            {
+                "Расчёт": "Граница рекомендации",
+                "Подстановка": f"{required:.1f} + {margin:.1f}",
+                "Результат": f"{automatic:.1f} МПа",
+            },
+        ])
+        st.dataframe(calculations, width="stretch", hide_index=True)
+
+        upper_below_required = upper < required
+        lower_above_automatic = lower >= automatic
+
+        checks = pd.DataFrame([
+            {
+                "Условие": f"{upper:.1f} < {required:.1f}",
+                "Смысл": "Верхняя граница ниже требования",
+                "Результат": "да" if upper_below_required else "нет",
+            },
+            {
+                "Условие": f"{lower:.1f} ≥ {automatic:.1f}",
+                "Смысл": "Нижняя граница выше границы рекомендации",
+                "Результат": "да" if lower_above_automatic else "нет",
+            },
+        ])
+        st.dataframe(checks, width="stretch", hide_index=True)
+        st.success(f"Итог. {result['assessment']['reason']}")
+
+        st.markdown("### Шаг 6. Выбор действия")
+        st.write(
+            "Если верхняя граница ниже требования, состав корректируется. "
+            "Если нижняя граница выше требования с запасом, состав направляется "
+            "на пробный замес. В остальных случаях нужен лабораторный контроль."
+        )
+
+        if upper_below_required:
+            applied_rule = "Выбрано правило. Весь расчётный диапазон ниже требования."
+        elif lower_above_automatic:
+            applied_rule = (
+                "Выбрано правило. Весь расчётный диапазон выше границы рекомендации."
+            )
+        else:
+            applied_rule = (
+                "Выбрано правило. Расчётный диапазон пересекает технологическую границу."
+            )
+
+        st.code(applied_rule, language="text")
+        st.success(f"Выбранное действие. {result['action']['title']}.")
+
+        st.markdown("### Шаг 7. Представление результата")
+        st.write(
+            "На основной странице показываются прогноз, интервал, зоны решения "
+            "и краткое основание для выбранного действия."
+        )
+        st.success("Рекомендация показана на основной странице.")
+
+        st.markdown("### Шаг 8. Журналирование и обратная связь")
+        st.write(
+            "В журнал сохраняются состав смеси, прогноз, технологические границы, "
+            "действие и оценка пользователя."
+        )
+        st.code(
+            f"timestamp = {result['timestamp']}\n"
+            f"action = {result['action']['code']}\n"
+            f"prediction = {prediction:.1f} МПа\n"
+            f"required_strength = {required:.1f} МПа",
+            language="text",
+        )
+        st.success("Запись сохранена в журнале.")
 
 
 st.set_page_config(
-    page_title='Контур решений',
-    layout='wide',
-    initial_sidebar_state='expanded',
+    page_title="Система контроля качества бетонной смеси",
+    layout="wide",
+    initial_sidebar_state="expanded",
 )
-
 
 config = load_config()
 
 try:
-    model = load_model()
-except Exception as e:
-    st.error(f'Не удалось загрузить модель из {MODEL_DIR}: {e}')
-    st.info('Распакуйте архив с моделью в папку `models/`.')
+    validate_config(config)
+except ValueError as error:
+    st.error(f"Конфигурация модели не подходит для приложения: {error}")
     st.stop()
 
+try:
+    model = load_model()
+except Exception as error:
+    st.error(f"Не удалось загрузить модель из {MODEL_DIR}: {error}")
+    st.info("Распакуйте архив модели в папку models/.")
+    st.stop()
 
-with st.sidebar:
-    st.header('Настройки')
+initialise_state()
 
-    t_low = st.slider('Порог ручной проверки', 0.0, 1.0, 0.60, 0.05)
-    t_high = st.slider('Порог авто-решения', 0.0, 1.0, 0.90, 0.05)
-
-    st.caption(
-        'Ниже первого порога — ручная проверка. '
-        'Выше второго — авто-решение, если нет признаков риска.'
+# При первом открытии показываем стартовый пример.
+# После ручного сброса расчёт не создаётся автоматически.
+if (
+        "last_result" not in st.session_state
+        and not st.session_state.get("hide_result_after_reset", False)
+):
+    st.session_state.last_result = run_pipeline(
+        inputs=get_inputs_from_state(),
+        config=config,
+        model=model,
+        required_strength=float(st.session_state.required_strength_input),
+        safety_margin=float(st.session_state.safety_margin_input),
+        composition_profile=st.session_state.composition_profile,
     )
 
-    if t_low > t_high:
-        st.warning('Порог ручной проверки не должен быть выше порога авто-решения')
+st.title("Система контроля качества бетонной смеси")
+st.caption("Учебная демонстрация контура принятия решений")
 
-    st.divider()
-
-    st.subheader('Стоимость ошибок')
-
-    st.caption(
-        'Эти два числа отвечают на простой вопрос: '
-        '**что для нас дороже — пропустить отказ или зря отвлечь оператора?** '
-        'От ответа зависит, какие пороги выставить.'
-    )
-
-    cost_auto = st.number_input(
-        'Если станок сломался, а контур этого не заметил',
-        min_value=1,
-        value=20,
-        help='Сколько мы условно теряем: простой линии, ремонт, брак деталей. '
-             'Обычно это сильно дороже, чем лишняя проверка.',
-    )
-    cost_manual = st.number_input(
-        'Если оператор зря проверил станок',
-        min_value=1,
-        value=3,
-        help='Сколько мы условно теряем: время оператора, остановка на проверку.',
-    )
-
-    ratio = cost_auto / cost_manual
-
-    if ratio >= 10:
-        rec = 'Ошибка очень дорогая → нужны **строгие** значения (t_high около 0.90–0.95)'
-        rec_color = '#EF4444'
-    elif ratio >= 4:
-        rec = 'Ошибка заметно дороже проверки → **умеренные** значения (t_high около 0.85–0.90)'
-        rec_color = '#F59E0B'
-    else:
-        rec = 'Стоимости близки → можно сделать **мягче** (t_high около 0.75–0.85)'
-        rec_color = '#22C55E'
-
-    st.markdown(
-        f"""
-<div style="
-    background: {rec_color}15;
-    border-left: 3px solid {rec_color};
-    padding: 10px 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    color: #D1D1D6;
-    margin-top: 8px;
-    line-height: 1.5;
-">
-    <div style="color: {rec_color}; font-weight: 600; margin-bottom: 4px;">
-        Соотношение 1 : {ratio:.0f}
-    </div>
-    {rec}
-</div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-st.title('Контур принятия решений для предиктивного обслуживания')
-
-st.caption(
-    'Система оценивает параметры станка, определяет возможный отказ '
-    'и выбирает действие для оператора.'
+st.write(
+    "Технолог задаёт состав бетонной смеси и возраст образца. Модель рассчитывает "
+    "ожидаемую прочность на сжатие к указанному сроку твердения. Затем приложение "
+    "предлагает одно из трёх действий. Скорректировать состав, назначить "
+    "лабораторное испытание или направить состав на пробный замес."
 )
 
+with st.sidebar:
+    st.header("Параметры оценки")
 
-tab_pipeline, tab_thresholds, tab_monitoring, tab_about = st.tabs([
-    'Контур решения',
-    'Пороги и зоны',
-    'Мониторинг',
-    'О системе',
-])
-
-
-with tab_pipeline:
-    st.subheader('Параметры станка')
-
+    st.selectbox(
+        "Типовой состав",
+        options=list(COMPOSITION_PROFILES),
+        key="composition_profile",
+        help="Типовой состав задаёт стартовые значения компонентов.",
+    )
     st.caption(
-        'Выберите готовый пример или измените значения вручную. '
-        'Под каждым полем указан допустимый диапазон.'
+        COMPOSITION_PROFILES[st.session_state.composition_profile]["description"]
     )
 
-    feature_columns = config['feature_columns']
-    ensure_input_state(feature_columns)
+    if st.button("Сформировать состав", width="stretch"):
+        set_composition(
+            composition_from_profile(st.session_state.composition_profile)
+        )
+        st.rerun()
 
-    btn_cols = st.columns(5)
+    if st.button("Сформировать допустимый состав", width="stretch"):
+        set_composition(composition_from_training_ranges(config))
+        st.rerun()
 
-    for i, (label, gen_fn) in enumerate(CLASS_GENERATORS.items()):
-        with btn_cols[i]:
-            button_type = 'primary' if st.session_state.expected_class == label else 'secondary'
+    if st.button("Сбросить все параметры", width="stretch"):
+        reset_application_state()
+        st.rerun()
 
-            if st.button(label, width='stretch', key=f'gen_{i}', type=button_type):
-                rng = np.random.default_rng()
-                new_inputs = gen_fn(rng)
-
-                set_machine_inputs(
-                    new_inputs,
-                    expected_class=label,
-                    clear_result=True,
-                )
-
-                st.rerun()
-
-    st.info(f'Ожидаемый класс: {st.session_state.expected_class}')
-
-    st.markdown('')
-
-    cols = st.columns(3)
-
-    for i, feature in enumerate(feature_columns):
-        stats = config['feature_stats'][feature]
-        info = FEATURE_INFO.get(feature, {'rus': feature, 'help': ''})
-        widget_key = f'in_{feature}'
-
-        with cols[i % 3]:
-            if stats['dtype'] == 'numeric':
-                min_v = float(stats['min'])
-                max_v = float(stats['max'])
-                step = max((max_v - min_v) / 1000, 0.01)
-
-                current_value = float(st.session_state.inputs.get(feature, stats['mean']))
-                current_value = min(max(current_value, min_v), max_v)
-
-                if widget_key not in st.session_state:
-                    st.session_state[widget_key] = current_value
-                else:
-                    st.session_state[widget_key] = min(
-                        max(float(st.session_state[widget_key]), min_v),
-                        max_v,
-                    )
-
-                value = st.number_input(
-                    info['rus'],
-                    min_value=min_v,
-                    max_value=max_v,
-                    step=step,
-                    format='%.2f',
-                    help=info['help'],
-                    key=widget_key,
-                    on_change=clear_last_result,
-                )
-
-                st.caption(
-                    f'Можно ввести: от {format_number(min_v)} до {format_number(max_v)}'
-                )
-
-                st.session_state.inputs[feature] = float(value)
-
-            else:
-                values = stats['values']
-
-                if widget_key not in st.session_state:
-                    current = st.session_state.inputs.get(feature, values[0])
-
-                    if current not in values:
-                        current = values[0]
-
-                    st.session_state[widget_key] = current
-
-                if st.session_state[widget_key] not in values:
-                    st.session_state[widget_key] = values[0]
-
-                value = st.selectbox(
-                    info['rus'],
-                    values,
-                    help=info['help'],
-                    key=widget_key,
-                    on_change=clear_last_result,
-                )
-
-                st.caption('Можно выбрать: ' + ', '.join(values))
-
-                st.session_state.inputs[feature] = value
-
-    sync_inputs_from_widgets(feature_columns)
+    st.caption(
+        "Сброс возвращает стартовые значения и убирает текущий результат с шагами расчёта. "
+        "Журнал решений сохраняется."
+    )
 
     st.divider()
+    st.subheader("Границы решения")
 
-    if st.button('Запустить контур на текущих параметрах', type='primary'):
-        st.session_state.last_result = run_pipeline(
-            st.session_state.inputs.copy(),
-            config,
-            model,
-            t_low,
-            t_high,
-            expected_class=st.session_state.expected_class,
+    st.slider(
+        "Требуемая прочность, МПа",
+        min_value=10.0,
+        max_value=80.0,
+        step=0.5,
+        key="required_strength_input",
+        help="Минимальная прочность, которую состав должен обеспечить к заданному возрасту.",
+        on_change=clear_last_result,
+    )
+
+    st.slider(
+        "Запас для автоматической рекомендации, МПа",
+        min_value=0.0,
+        max_value=10.0,
+        step=0.5,
+        key="safety_margin_input",
+        help=(
+            "Чем больше запас, тем осторожнее система и тем чаще предлагает "
+            "лабораторный контроль."
+        ),
+        on_change=clear_last_result,
+    )
+
+    required_strength_sidebar = float(st.session_state.required_strength_input)
+    safety_margin_sidebar = float(st.session_state.safety_margin_input)
+
+    st.caption(
+        f"Граница автоматической рекомендации составляет "
+        f"**{required_strength_sidebar + safety_margin_sidebar:.1f} МПа**."
+    )
+
+    with st.expander("Стоимость ошибок", expanded=False):
+        cost_miss = st.number_input(
+            "Одобрить слабую партию",
+            min_value=1,
+            value=50,
+            step=1,
+            key="cost_miss_input",
+            help="Условная стоимость пропуска недостаточной прочности.",
+        )
+        cost_test = st.number_input(
+            "Лишнее лабораторное испытание",
+            min_value=1,
+            value=5,
+            step=1,
+            key="cost_test_input",
+            help="Условная стоимость дополнительной проверки нормального состава.",
+        )
+        ratio = cost_miss / cost_test
+        st.caption(
+            f"Соотношение равно 1 к {ratio:.0f}. Чем оно больше, тем разумнее "
+            "увеличивать запас для автоматической рекомендации."
         )
 
-    if 'last_result' in st.session_state:
-        result = st.session_state.last_result
+main_tab, about_tab, journal_tab = st.tabs([
+    "Оценка состава смеси",
+    "Как работает система",
+    "Журнал решений",
+])
 
-        st.subheader('Прохождение контура')
+with main_tab:
+    st.caption(
+        "Границы решения задаются слева. Стартовый расчёт уже готов, "
+        "а состав можно изменить в блоке ниже."
+    )
 
-        if result.get('expected_class'):
-            st.info(f'Ожидаемый класс: {result["expected_class"]}')
+    # Эти значения нужны учебным сценариям до ручного изменения состава.
+    required_strength = float(st.session_state.required_strength_input)
+    safety_margin = float(st.session_state.safety_margin_input)
 
-        c1, c2 = st.columns(2)
+    st.subheader("Учебные сценарии")
+    st.write(
+        "Кнопки ниже подбирают примеры по текущей модели и заданным границам. "
+        "Поэтому красный, пограничный и зелёный сценарии проверяются расчётом, "
+        "а не назначаются заранее."
+    )
 
-        with c1:
-            with st.container(border=True):
-                st.markdown('**Шаг 1. Проверка данных**')
-                st.caption('Проверяем, что значения заполнены и входят в допустимые диапазоны.')
+    scenario_1, scenario_2, scenario_3, scenario_4 = st.columns(4)
 
-                if result['validation']['ok']:
-                    st.success('Все значения корректны')
-                else:
-                    st.error('Есть ошибки:')
 
-                    for err in result['validation']['errors']:
-                        st.write('•', err)
-
-        with c2:
-            with st.container(border=True):
-                st.markdown('**Шаг 2. Быстрые правила**')
-                st.caption('Если риск очевиден, модель не вызывается.')
-
-                if result.get('early_rules'):
-                    for rule in result['early_rules']:
-                        st.warning(rule['message'])
-                else:
-                    st.info('Явного риска нет, переходим к модели')
-
-        if 'prediction' in result:
-            with st.container(border=True):
-                st.markdown('**Шаг 3. Подготовка признаков**')
-                st.caption(
-                    'Используются входные признаки, подготовленные для модели. '
-                    'На этапе запуска контура дополнительные признаки не создаются.'
-                )
-                st.info('Набор признаков передан модели в том же составе, что использовался при обучении')
-
-            with st.container(border=True):
-                st.markdown('**Шаг 4. Оценка модели**')
-                st.caption(
-                    'Модель выбирает наиболее вероятный класс. Затем результат проверяется правилами.'
-                )
-
-                expected_internal = CLASS_LABEL_TO_INTERNAL.get(result.get('expected_class'))
-                prediction = result['prediction']
-                prediction_rus = CLASS_INFO[prediction]['rus']
-
-                if expected_internal == prediction:
-                    st.success(f'Модель выбрала ожидаемый класс: {prediction_rus}')
-                else:
-                    st.warning(
-                        f'Ожидали: {result.get("expected_class")}. '
-                        f'Модель выбрала: {prediction_rus}.'
-                    )
-
-                m1, m2 = st.columns([1, 2])
-
-                with m1:
-                    info = CLASS_INFO[result['prediction']]
-                    st.metric(info['rus'], f"{result['confidence']:.1%}")
-                    st.caption(f"Внутреннее имя класса: `{result['prediction']}`")
-
-                with m2:
-                    proba_df = pd.DataFrame({
-                        'Класс': [
-                            CLASS_INFO[class_name]['rus']
-                            for class_name in result['probabilities']
-                        ],
-                        'Вероятность': list(result['probabilities'].values()),
-                    }).sort_values('Вероятность', ascending=True)
-
-                    color_map = {
-                        CLASS_INFO[class_name]['rus']: CLASS_INFO[class_name]['color']
-                        for class_name in result['probabilities']
-                    }
-
-                    fig = px.bar(
-                        proba_df,
-                        x='Вероятность',
-                        y='Класс',
-                        orientation='h',
-                        range_x=[0, 1],
-                        color='Класс',
-                        color_discrete_map=color_map,
-                    )
-
-                    fig.update_layout(
-                        height=220,
-                        margin=dict(l=0, r=0, t=0, b=0),
-                        showlegend=False,
-                    )
-
-                    st.plotly_chart(fig, width='stretch')
-
-            with st.container(border=True):
-                st.markdown('**Шаг 5. Проверка решения**')
-                st.caption(
-                    'Смотрим на уверенность модели и признаки риска в параметрах.'
-                )
-
-                zone_text = {
-                    'auto_decision': f"уверенность {result['confidence']:.1%} ≥ {t_high:.0%}",
-                    'recommendation': f"{t_low:.0%} ≤ уверенность {result['confidence']:.1%} < {t_high:.0%}",
-                    'manual_review': f"уверенность {result['confidence']:.1%} < {t_low:.0%}",
-                }
-
-                st.write(
-                    f"Начальная зона: `{result['zone_initial']}` "
-                    f"({zone_text[result['zone_initial']]})"
-                )
-
-                if result.get('late_rules'):
-                    for rule in result['late_rules']:
-                        st.warning(rule['message'])
-
-                    st.write(f"Итоговая зона: `{result['zone_final']}`")
-                else:
-                    st.info('Дополнительных рисков не найдено')
-
-            with st.container(border=True):
-                st.markdown('**Шаги 6–7. Финальное действие**')
-                st.caption('Показываем, что нужно сделать дальше.')
-
-                action = result['action']
-
-                if action['severity'] == 'low':
-                    st.success(action['label'])
-                elif action['severity'] == 'medium':
-                    st.warning(action['label'])
-                else:
-                    st.error(action['label'])
-
-                st.caption(f"Тип исполнения: `{action['execution_type']}`")
-
-        with st.container(border=True):
-            st.markdown('**Шаг 8. Журнал и обратная связь**')
-            st.caption(
-                'Решение записано. Оценка от оператора поможет потом разбирать ошибки.'
+    def apply_target_scenario(target_status, title):
+        with st.spinner("Подбираем пример по текущей модели и границам решения..."):
+            composition, profile_name = find_scenario_composition(
+                model=model,
+                config=config,
+                required_strength=required_strength,
+                safety_margin=safety_margin,
+                target_status=target_status,
             )
 
-            st.caption(f"timestamp: {result['timestamp']}")
+        if composition is None:
+            st.warning(
+                f"Не удалось подобрать пример для сценария «{title}» при текущих границах. "
+                "Попробуйте изменить требуемую прочность или запас."
+            )
+            return
 
-            fb1, fb2, _ = st.columns([1, 1, 4])
-
-            with fb1:
-                if st.button('Согласен', width='stretch'):
-                    update_feedback(result['timestamp'], 'agree')
-                    st.toast('Сохранено')
-
-            with fb2:
-                if st.button('Не согласен', width='stretch'):
-                    update_feedback(result['timestamp'], 'disagree')
-                    st.toast('Сохранено')
+        apply_and_calculate_scenario(
+            composition=composition,
+            profile_name=profile_name,
+            model=model,
+            config=config,
+            required_strength=required_strength,
+            safety_margin=safety_margin,
+        )
 
 
-with tab_thresholds:
-    st.subheader('Пороги простыми словами')
+    with scenario_1:
+        if st.button("Показать красную зону", width="stretch"):
+            apply_target_scenario("confident_fail", "красная зона")
+
+    with scenario_2:
+        if st.button("Показать пограничный случай", width="stretch"):
+            apply_target_scenario("uncertain", "пограничный случай")
+
+    with scenario_3:
+        if st.button("Показать зелёную зону", width="stretch"):
+            apply_target_scenario("confident_pass", "зелёная зона")
+
+    with scenario_4:
+        if st.button("Показать ошибку ввода", width="stretch"):
+            invalid_composition = build_no_water_scenario()
+            apply_and_calculate_scenario(
+                composition=invalid_composition,
+                profile_name="Ошибка ввода, вода равна 0",
+                model=model,
+                config=config,
+                required_strength=required_strength,
+                safety_margin=safety_margin,
+            )
+
+    st.divider()
+    st.subheader("Состав смеси")
+
+    with st.expander("Изменить состав смеси вручную", expanded=False):
+        left_column, right_column = st.columns(2)
+
+        with left_column:
+            st.markdown("**Вяжущие материалы и добавки**")
+            for feature in [
+                "CEMENT",
+                "BLAST_FURNACE_SLAG",
+                "FLY_ASH",
+                "SUPERPLASTICIZER",
+            ]:
+                min_value, max_value = slider_bounds(feature, config)
+                st.slider(
+                    FEATURE_INFO[feature]["label"],
+                    min_value=float(min_value),
+                    max_value=float(max_value),
+                    step=float(FEATURE_INFO[feature]["step"]),
+                    key=f"input_{feature}",
+                    help=FEATURE_INFO[feature]["help"],
+                    on_change=clear_last_result,
+                )
+
+        with right_column:
+            st.markdown("**Вода, заполнители и срок твердения**")
+            for feature in [
+                "WATER",
+                "COARSE_AGGREGATE",
+                "FINE_AGGREGATE",
+                "AGE",
+            ]:
+                min_value, max_value = slider_bounds(feature, config)
+                st.slider(
+                    FEATURE_INFO[feature]["label"],
+                    min_value=float(min_value),
+                    max_value=float(max_value),
+                    step=float(FEATURE_INFO[feature]["step"]),
+                    key=f"input_{feature}",
+                    help=FEATURE_INFO[feature]["help"],
+                    on_change=clear_last_result,
+                )
+
+    current_inputs = get_inputs_from_state()
+
+    preview_left, preview_right = st.columns([2, 1])
+
+    with preview_left:
+        composition_table = pd.DataFrame([
+            {
+                "Компонент": FEATURE_INFO[feature]["label"],
+                "Значение": f"{current_inputs[feature]:.1f}",
+            }
+            for feature in BASE_INPUT_COLUMNS
+        ])
+        st.dataframe(
+            composition_table,
+            width="stretch",
+            hide_index=True,
+            height=280,
+        )
+
+    with preview_right:
+        st.metric("Требуемая прочность", f"{required_strength:.1f} МПа")
+        st.metric(
+            "Граница рекомендации",
+            f"{required_strength + safety_margin:.1f} МПа",
+        )
+        st.caption(
+            "При пересечении границы прогнозным интервалом выбирается "
+            "лабораторное испытание."
+        )
+
+    if st.button(
+            "Рассчитать прогноз прочности",
+            type="primary",
+            width="stretch",
+    ):
+        st.session_state.last_result = run_pipeline(
+            inputs=current_inputs,
+            config=config,
+            model=model,
+            required_strength=required_strength,
+            safety_margin=safety_margin,
+            composition_profile=st.session_state.composition_profile,
+        )
+        st.rerun()
+
+    result = st.session_state.get("last_result")
+
+    if result is not None:
+        st.divider()
+        st.subheader("Результат оценки")
+
+        if "prediction" in result:
+            metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+            metric_1.metric(
+                "Прогнозная прочность",
+                f"{result['prediction']:.1f} МПа",
+            )
+            metric_2.metric(
+                "90% интервал",
+                f"от {result['assessment']['lower']:.1f} до "
+                f"{result['assessment']['upper']:.1f} МПа",
+            )
+            metric_3.metric(
+                "Требование",
+                f"{result['required_strength']:.1f} МПа",
+            )
+            metric_4.metric(
+                "Граница рекомендации",
+                f"{result['assessment']['automatic_threshold']:.1f} МПа",
+            )
+
+            render_zone_visual(
+                required_strength=float(result["required_strength"]),
+                automatic_threshold=float(
+                    result["assessment"]["automatic_threshold"]
+                ),
+                prediction=float(result["prediction"]),
+                lower=float(result["assessment"]["lower"]),
+                upper=float(result["assessment"]["upper"]),
+                active_status=result["assessment"]["status"],
+            )
+
+            if result.get("range_warnings"):
+                st.warning(
+                    "Часть параметров выходит за диапазон обучения. Прогноз рассчитан, "
+                    "но его следует трактовать осторожнее."
+                )
+
+        render_action(result["action"])
+
+        if "prediction" in result:
+            with st.expander("Основание для решения", expanded=True):
+                st.write(result["assessment"]["reason"])
+                st.caption(
+                    "Модель рассчитывает прочность, а технологические границы "
+                    "переводят этот расчёт в действие."
+                )
+
+        render_pipeline_trace(result, config)
+
+        feedback_left, feedback_right, _ = st.columns([1, 1, 4])
+        with feedback_left:
+            if st.button(
+                    "Рекомендация полезна",
+                    key="feedback_yes",
+                    width="stretch",
+            ):
+                update_feedback(result["timestamp"], "useful")
+                st.toast("Оценка сохранена в журнале")
+        with feedback_right:
+            if st.button(
+                    "Нужна корректировка",
+                    key="feedback_no",
+                    width="stretch",
+            ):
+                update_feedback(result["timestamp"], "needs_review")
+                st.toast("Оценка сохранена в журнале")
+
+with about_tab:
+    st.subheader("Как работает система")
 
     st.write(
-        'Контур работает просто: модель даёт уверенность, а правила проверяют, '
-        'нет ли опасных параметров.'
+        "Сначала технолог задаёт состав бетонной смеси и возраст образца. "
+        "Модель оценивает, какую прочность на сжатие можно ожидать к этому сроку. "
+        "После этого расчёт сравнивается с требованием проекта, и приложение "
+        "предлагает следующее действие."
     )
-
-    st.divider()
-
-    c1, c2, c3 = st.columns(3)
-
-    with c1:
-        with st.container(border=True):
-            st.markdown('**Ручная проверка**')
-            st.metric('Зона', f'ниже {t_low:.0%}')
-            st.caption('Модель не уверена. Решение принимает оператор.')
-
-    with c2:
-        with st.container(border=True):
-            st.markdown('**Рекомендация**')
-            st.metric('Зона', f'{t_low:.0%}–{t_high:.0%}')
-            st.caption('Модель предлагает действие, оператор подтверждает.')
-
-    with c3:
-        with st.container(border=True):
-            st.markdown('**Авто-решение**')
-            st.metric('Зона', f'выше {t_high:.0%}')
-            st.caption('Можно принять автоматически, если нет признаков риска.')
-
-    st.divider()
-
-    st.subheader('Главное правило безопасности')
-
-    st.info(
-        'Если параметры похожи на отказ, система не разрешает авто-решение '
-        '«продолжать работу». Случай уходит оператору.'
-    )
-
-    st.divider()
-
-    st.subheader('Какие пороги использует контур')
 
     st.caption(
-        'Пороги сгруппированы по этапам: '
-        'сначала ранние правила, потом проверка по модели, потом физические правила.'
+        "Это задача регрессии. Модель выдаёт число в МПа, а не просто ответ "
+        "«подходит» или «не подходит»."
     )
 
-    st.markdown('##### 1. Ранние правила — срабатывают до модели')
-    st.caption('Очевидные риски: модель в этом случае не вызывается.')
+    metrics = config.get("test_metrics", {})
+    metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+    metric_1.metric("Средняя ошибка MAE", f"{metrics.get('mae', 0):.2f} МПа")
+    metric_2.metric("Ошибка RMSE", f"{metrics.get('rmse', 0):.2f} МПа")
+    metric_3.metric("Качество R²", f"{metrics.get('r2', 0):.3f}")
+    metric_4.metric(
+        "Попадание в 90% интервал",
+        f"{100 * metrics.get('interval_coverage', 0):.1f}%",
+    )
 
-    early_cols = st.columns(2)
-
-    with early_cols[0]:
-        with st.container(border=True):
-            st.markdown('**Износ инструмента**')
-            st.metric('Порог', 'от 190 мин')
-            st.caption('Инструмент работает слишком долго — нужна проверка.')
-
-    with early_cols[1]:
-        with st.container(border=True):
-            st.markdown('**Крутящий момент**')
-            st.metric('Порог', '< 3 Н·м')
-            st.caption('Очень низкое значение может означать ошибку датчика.')
-
-    st.markdown('')
-
-    st.markdown('##### 2. Правила по выходу модели — проверка вероятностей')
-    st.caption('Анализ уверенности и распределения классов.')
-
-    model_cols_1 = st.columns(2)
-
-    with model_cols_1[0]:
-        with st.container(border=True):
-            st.markdown('**Авто-решение**')
-            st.metric('Порог уверенности', f'от {t_high:.0%}')
-            st.caption('Разрешено только если нет признаков риска.')
-
-    with model_cols_1[1]:
-        with st.container(border=True):
-            st.markdown('**Сомнение модели**')
-            st.metric('Порог', 'разница < 15%')
-            st.caption('Если два главных класса слишком близки — решает оператор.')
-
-    model_cols_2 = st.columns(2)
-
-    with model_cols_2[0]:
-        with st.container(border=True):
-            st.markdown('**Риск износа по модели**')
-            st.metric('Порог', '> 5%')
-            st.caption('Даже небольшой риск износа отправляет случай на проверку.')
-
-    with model_cols_2[1]:
-        with st.container(border=True):
-            st.markdown('**Скрытый риск отказа**')
-            st.metric('Порог', '> 5%')
-            st.caption('Модель выбрала «нет отказа», но сумма рисков отказов выше 5%.')
-
-    st.markdown('')
-
-    st.markdown('##### 3. Физические правила — сравнение с физикой процесса')
-    st.caption('Параметры станка сравниваются с признаками отказов.')
-
-    phys_cols_1 = st.columns(2)
-
-    with phys_cols_1[0]:
-        with st.container(border=True):
-            st.markdown('**Перегрев**')
-            st.metric('Условие', 'ΔT < 10 K, об/мин < 1500, тип L')
-            st.caption('Малая разница температур при низких оборотах и типе L.')
-
-    with phys_cols_1[1]:
-        with st.container(border=True):
-            st.markdown('**Мощность**')
-            st.metric('Безопасная зона', '4000–8500 Вт')
-            st.caption('P = 0.10472 · RPM · Torque. Выход из диапазона — проверка.')
-
-    phys_cols_2 = st.columns(2)
-
-    with phys_cols_2[0]:
-        with st.container(border=True):
-            st.markdown('**Перегрузка по моменту**')
-            st.metric('Порог (L / M / H)', '10000 / 11000 / 12000')
-            st.caption('Tool_Wear × Torque. Порог зависит от типа детали.')
-
-    with phys_cols_2[1]:
-        with st.container(border=True):
-            st.markdown('**Износ — предупреждение**')
-            st.metric('Порог', 'от 180 мин')
-            st.caption('Если модель не выбрала износ, контур всё равно проверяет риск.')
+    st.caption(
+        "Чем меньше MAE и RMSE, тем ближе прогнозы к измерениям. "
+        "Чем ближе R² к единице, тем больше изменений прочности объясняет модель."
+    )
 
     st.divider()
-
-    st.subheader('Зачем нужны эти пороги')
+    st.subheader("Данные для обучения")
 
     st.write(
-        'Если сделать пороги строже, оператор будет проверять больше случаев. '
-        'Если сделать мягче, автоматических решений станет больше, но риск ошибки вырастет.'
+        "Для обучения использован открытый набор Concrete Compressive Strength "
+        "из UCI Machine Learning Repository. В нём собраны результаты испытаний "
+        "1 030 бетонных образцов. Для каждого образца известны компоненты смеси, "
+        "возраст и измеренная прочность."
     )
 
-    expected_cost_per_check = cost_manual
-    expected_cost_per_miss = cost_auto
+    data_left, data_right = st.columns(2)
+
+    with data_left:
+        st.metric("Образцов", "1 030")
+        st.metric("Что прогнозируем", "Прочность в МПа")
+
+    with data_right:
+        st.metric("Параметров на входе", "8")
+        st.metric("Тип задачи", "Регрессия")
 
     st.markdown(
-        f"""
-**Как сейчас настроены стоимости (из боковой панели):**
-
-- одна ошибка авто-решения «стоит» как **{expected_cost_per_miss / expected_cost_per_check:.0f} ручных проверок**
-- значит, выгодно отправлять случай оператору, если **риск ошибки** модели выше, чем {1 / (expected_cost_per_miss / expected_cost_per_check):.1%}
-- именно поэтому порог авто-решения стоит **высоким** — {t_high:.0%}: модель должна быть очень уверена, чтобы заменить оператора
+        """
+| Параметр | Простое объяснение |
+| --- | --- |
+| Цемент | Основное вяжущее вещество |
+| Доменный шлак | Добавка, которая может заменить часть цемента |
+| Зола-уноса | Минеральная добавка |
+| Вода | Вода для приготовления смеси |
+| Суперпластификатор | Добавка для регулирования подвижности смеси |
+| Щебень | Крупный заполнитель |
+| Песок | Мелкий заполнитель |
+| Возраст | Сколько дней твердел образец |
+| Прочность на сжатие | Значение, которое нужно предсказать |
         """
     )
 
+    st.caption(
+        "Источник данных, UCI Machine Learning Repository, "
+        "Concrete Compressive Strength Data Set, I-Cheng Yeh, 1998."
+    )
 
-with tab_monitoring:
-    st.subheader('Состояние контура')
+    st.divider()
+    st.subheader("Как получается прогноз")
+
+    st.write(
+        "Прочность зависит не от одного компонента. Важны количество воды, цемента, "
+        "добавок, заполнителей и срок твердения. Модель рассматривает эти параметры "
+        "вместе и оценивает ожидаемую прочность для выбранного состава."
+    )
+
+    with st.expander("Какие параметры важнее для модели", expanded=True):
+        render_global_feature_importance()
+
+    st.divider()
+    st.subheader("Как понимать результат")
+
+    st.write(
+        "После расчёта показывается не только одно число, но и диапазон возможной "
+        "прочности. Он нужен, потому что модель может ошибиться. Верхняя граница "
+        "показывает более благоприятную оценку, нижняя показывает более осторожную."
+    )
+
+    with st.expander("Почему рядом с прогнозом есть интервал", expanded=False):
+        coverage = 100 * float(metrics.get("interval_coverage", 0))
+        st.write(
+            "Ширина интервала рассчитана по ошибкам модели на проверочных данных. "
+            f"На отдельной тестовой части фактическая прочность попадала в этот "
+            f"интервал в {coverage:.1f}% случаев. Это близко к заявленному уровню 90%."
+        )
+
+    st.divider()
+    st.subheader("Как выбирается действие")
+
+    st.write(
+        "Для решения смотрят на весь расчётный диапазон, а не только на центральный "
+        "прогноз. Так можно отделить случай, когда состав явно не дотягивает до "
+        "требования, от случая, когда уверенности пока недостаточно."
+    )
+
+    st.markdown(
+        """
+| Что видно по расчётному диапазону | Как это понимать | Что предлагает приложение |
+| --- | --- | --- |
+| Весь диапазон расположен ниже требования | Даже при благоприятной оценке прочности не хватает | Скорректировать состав до замеса |
+| Весь диапазон расположен выше требования и запаса | Даже осторожная оценка достаточно высокая | Направить состав на пробный замес |
+| Диапазон пересекает требование или границу рекомендации | Прогноз близко к границе, поэтому уверенности недостаточно | Провести лабораторное испытание |
+        """
+    )
 
     st.caption(
-        f'Здесь видно, сколько решений прошло через систему и как часто нужен оператор. '
-        f'Журнал хранится последние {LOG_RETENTION_HOURS} часов — более старые записи '
-        f'удаляются автоматически.'
+        "Требование и запас задаются в левой панели. Модель не выбирает эти "
+        "значения, она только оценивает прочность."
+    )
+
+    st.divider()
+    st.subheader("Что нужно помнить")
+
+    with st.expander("Модель не видит фактическую прочность заранее", expanded=False):
+        st.write(
+            "До испытания известны только состав смеси и возраст образца. "
+            "Измеренная прочность появляется позже и не передаётся в модель. "
+            "Поэтому при расчёте нет готовой подсказки о правильном ответе."
+        )
+
+    with st.expander("Когда результат менее надёжен", expanded=False):
+        st.write(
+            "Модель училась на 1 030 составах из набора данных. Если пользователь "
+            "задаёт значение, которого среди обучающих примеров не было, расчёт "
+            "всё равно выполняется. Но приложение показывает предупреждение, "
+            "потому что в таком случае модель работает за пределами знакомых данных."
+        )
+
+    with st.expander("Почему цена ошибок имеет значение", expanded=False):
+        cost_miss_value = int(st.session_state.get("cost_miss_input", 50))
+        cost_test_value = int(st.session_state.get("cost_test_input", 5))
+        ratio = cost_miss_value / cost_test_value
+
+        st.write(
+            f"Сейчас в левой панели соотношение равно 1 к {ratio:.0f}. "
+            "Это значит, что пропустить недостаточную прочность считается дороже, "
+            "чем провести лишнее лабораторное испытание. Пока это соотношение "
+            "служит для учебного примера и не меняет выбор действия автоматически."
+        )
+
+    with st.expander("Почему модель проверяют на новых данных", expanded=False):
+        st.write(
+            "На реальном производстве могут меняться материалы, дозировки, "
+            "оборудование и условия твердения. Тогда новые составы становятся "
+            "непохожими на те, на которых училась модель. Поэтому её нужно "
+            "сверять со свежими испытаниями и при необходимости переобучать."
+        )
+
+    st.divider()
+    st.subheader("Ограничения")
+
+    st.write(
+        "Набор данных небольшой, поэтому приложение подходит для учебной "
+        "демонстрации и предварительной оценки. В расчёте не учитываются "
+        "температура и влажность твердения, марка цемента, тонкость помола "
+        "и особенности конкретного завода."
+    )
+
+    st.write(
+        "Рекомендация не заменяет пробный замес и подтверждающее лабораторное "
+        "испытание. Границы решения задаёт пользователь, они отражают выбранный "
+        "подход к контролю качества, а не вывод самой модели."
+    )
+
+with journal_tab:
+    st.subheader("Журнал решений за последние 24 часа")
+    st.caption(
+        "Это общий демонстрационный журнал для текущего запуска приложения. "
+        "Записи могут исчезнуть после перезапуска или обновления хостинга. "
+        "Не используйте его как персональное или постоянное хранилище."
+    )
+    st.caption(
+        "В производственной системе к таким записям обычно добавляют номер партии, "
+        "ответственного технолога и фактический результат испытания."
     )
 
     records = read_log()
 
     if not records:
-        st.info('Журнал пуст. Запустите контур.')
+        st.info("Журнал пока пуст.")
     else:
-        df_log = pd.DataFrame([
-            {
-                'time': record.get('timestamp'),
-                'expected_class': record.get('expected_class'),
-                'prediction': record.get('prediction'),
-                'confidence': record.get('confidence'),
-                'zone': record.get('zone_final'),
-                'feedback': record.get('feedback'),
-            }
-            for record in records
-        ])
+        log_rows = []
+        for record in records:
+            action = record.get("action", {})
+            log_rows.append({
+                "Время": record.get("timestamp"),
+                "Типовой состав": record.get("composition_profile", "нет данных"),
+                "Прогноз, МПа": record.get("prediction"),
+                "Требование, МПа": record.get("required_strength"),
+                "Запас, МПа": record.get("safety_margin"),
+                "Действие": action.get("title", "нет данных"),
+                "Обратная связь": record.get("feedback"),
+            })
 
-        total = len(df_log)
-        with_fb = int(df_log['feedback'].notna().sum())
-        avg_conf = df_log['confidence'].dropna().mean()
-        zone_counts = df_log['zone'].value_counts()
-        manual_share = zone_counts.get('manual_review', 0) / total
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        c1.metric('Всего решений', total)
-        c2.metric('С обратной связью', f'{with_fb} ({100 * with_fb / total:.0f}%)')
-        c3.metric(
-            'Средняя уверенность',
-            f'{avg_conf:.3f}' if pd.notna(avg_conf) else '-',
+        log_df = pd.DataFrame(log_rows)
+        total = len(log_df)
+        lab_count = int(
+            (log_df["Действие"] == "Назначить лабораторное испытание").sum()
         )
-        c4.metric('Доля ручной проверки', f'{100 * manual_share:.0f}%')
-
-        st.divider()
-
-        st.markdown('**Health-check контура**')
-
-        if manual_share > 0.3 and total >= 5:
-            st.warning(
-                f'Доля ручной проверки {100 * manual_share:.0f}% выше 30% — '
-                f'оператор перегружен. Подумайте о пересмотре порогов или правил.'
-            )
-        else:
-            st.success(
-                'Нагрузка на оператора в норме: менее 30% решений требуют ручной проверки.'
-            )
-
-        if total >= 5 and with_fb / total < 0.5:
-            st.warning(
-                f'Только {100 * with_fb / total:.0f}% решений получили обратную связь. '
-                f'Без неё сложнее понять, где модель ошибается.'
-            )
-        elif total >= 5:
-            st.success(
-                f'Обратная связь поступает по {100 * with_fb / total:.0f}% решений.'
-            )
-
-        st.divider()
-
-        st.subheader('Последние решения')
-
-        st.dataframe(
-            df_log.tail(20).iloc[::-1],
-            width='stretch',
-            height=300,
-            hide_index=True,
+        adjust_count = int(
+            (log_df["Действие"] == "Скорректировать состав смеси до замеса").sum()
         )
+        feedback_count = int(log_df["Обратная связь"].notna().sum())
 
+        stat_1, stat_2, stat_3, stat_4 = st.columns(4)
+        stat_1.metric("Всего расчётов", total)
+        stat_2.metric("Лабораторный контроль", lab_count)
+        stat_3.metric("Корректировка состава", adjust_count)
+        stat_4.metric("Есть обратная связь", f"{feedback_count} из {total}")
+
+        st.dataframe(log_df.iloc[::-1], width="stretch", hide_index=True, height=360)
         st.download_button(
-            'Скачать журнал',
+            "Скачать журнал",
             data=LOG_PATH.read_bytes(),
-            file_name='decisions.jsonl',
-            mime='application/x-ndjson',
+            file_name="concrete_decisions.jsonl",
+            mime="application/x-ndjson",
         )
-
-
-with tab_about:
-    st.subheader('Кейс')
-
-    st.write(
-        'Фрезерный станок работает на производственной линии. '
-        'Система получает параметры процесса и выбирает безопасное действие.'
-    )
-
-    st.divider()
-
-    st.subheader('Датасет AI4I 2020 Predictive Maintenance')
-
-    st.write(
-        'Модель обучена на открытом датасете **AI4I 2020 Predictive Maintenance Dataset** '
-        '(UCI Machine Learning Repository). Это синтетический набор данных, '
-        'который моделирует работу промышленного фрезерного станка и используется '
-        'как стандартный бенчмарк в задачах предиктивного обслуживания.'
-    )
-
-    st.markdown('##### Что в датасете')
-
-    ds1, ds2, ds3 = st.columns(3)
-
-    ds1.metric('Наблюдений', '10 000')
-    ds2.metric('Признаков', '6 рабочих + 8 служебных')
-    ds3.metric('Классов отказа', '5 + норма')
-
-    st.markdown('##### Признаки станка')
-
-    st.markdown('''
-| Признак | Что означает | Типичный диапазон |
-| --- | --- | --- |
-| **Type** | Качество детали: L (Low, 50%), M (Medium, 30%), H (High, 20%) | L / M / H |
-| **Air temperature** | Температура воздуха в цеху | ~295–305 K (≈22–32 °C) |
-| **Process temperature** | Температура в зоне обработки | ~305–315 K (≈32–42 °C) |
-| **Rotational speed** | Обороты шпинделя | ~1100–2900 об/мин |
-| **Torque** | Крутящий момент на инструменте | ~3–77 Н·м |
-| **Tool wear** | Время работы инструмента с момента замены | 0–253 мин |
-    ''')
-
-    st.markdown('##### Типы отказов и физические правила, по которым они генерируются')
-
-    st.markdown('''
-| Класс | Доля в данных | Условие возникновения |
-| --- | --- | --- |
-| **No Failure** — нет отказа | ~96.5 % | Все параметры в норме |
-| **Heat Dissipation Failure** (HDF) — отказ теплоотвода | ~1.2 % | Разница температур < 8.6 K **и** обороты < 1380 об/мин |
-| **Power Failure** (PWF) — отказ по мощности | ~0.95 % | Мощность вне диапазона 3500–9000 Вт (P = 2π·RPM·Torque / 60) |
-| **Overstrain Failure** (OSF) — перегрузка по моменту | ~0.78 % | Tool_Wear × Torque превышает порог: 11000 для L, 12000 для M, 13000 для H |
-| **Tool Wear Failure** (TWF) — износ инструмента | ~0.46 % | Износ достиг случайной точки в диапазоне 200–240 мин |
-| **Random Failures** (RNF) — случайный отказ | ~0.19 % | Случайный отказ с вероятностью 0.1% на любом наблюдении |
-    ''')
-
-    st.info(
-        '**Важно:** классы сильно несбалансированы. Из 10 000 наблюдений только '
-        '~339 содержат отказы — модель должна научиться ловить редкие события, '
-        'не выдавая много ложных срабатываний на 96.5 % нормальных наблюдений.'
-    )
-
-    st.markdown('##### Почему пороги в контуре близки, но не равны порогам датасета')
-
-    st.write(
-        'В контуре физические правила (вкладка «Пороги и зоны») немного жёстче, '
-        'чем в исходном датасете: ΔT < 10 K вместо 8.6 K, мощность 4000–8500 Вт вместо '
-        '3500–9000 Вт. Это сделано **намеренно** — чтобы создать «зону подозрения» '
-        'до того, как наступит реальный отказ. Если ждать точного совпадения с физикой '
-        'отказа, у оператора уже не будет времени среагировать.'
-    )
-
-    st.markdown('##### Откуда взять датасет')
-
-    st.markdown(
-        '- **UCI ML Repository:** [archive.ics.uci.edu/dataset/601](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset)  \n'
-        '- **Авторы:** Stephan Matzka, School of Engineering — Technology and Life, '
-        'Hochschule für Technik und Wirtschaft Berlin, 2020  \n'
-        '- **Лицензия:** Creative Commons Attribution 4.0 International (CC BY 4.0)'
-    )
-
-    st.divider()
-
-    st.subheader('Архитектура контура')
-
-    st.markdown('''
-| Шаг | Что делает | Функция в коде |
-| --- | --- | --- |
-| 1 | Проверяет входные данные | `step1_validate` |
-| 2 | Проверяет очевидные риски | `step2_early_rules` |
-| 3 | Использует признаки, подготовленные при обучении | выполняется при обучении модели |
-| 4 | Получает прогноз модели | `step4_predict` |
-| 5 | Проверяет уверенность и риски | `step5_apply_thresholds`, `step5_late_rules`, `step5_physics_rules` |
-| 6 | Выбирает действие | `step6_business_logic`, `has_risk_signals` |
-| 7 | Показывает итог оператору | поле `action` в результате |
-| 8 | Сохраняет решение | `step8_log`, вкладка «Мониторинг» |
-    ''')
-
-    st.subheader('Модель')
-
-    if 'test_metrics' in config:
-        metrics = config['test_metrics']
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        c1.metric('F1-macro', f"{metrics.get('f1_macro', 0):.4f}")
-        c2.metric('Balanced acc', f"{metrics.get('balanced_accuracy', 0):.4f}")
-        c3.metric('Log loss', f"{metrics.get('log_loss', 0):.4f}")
-        c4.metric('ROC-AUC OvR', f"{metrics.get('roc_auc_ovr_macro', 0):.4f}")
-
-    st.write(
-        'Модель обучена через mljar-supervised. Лучший вариант — `Ensemble_Stacked`.'
-    )
-
-    st.subheader('Почему нужен контур')
-
-    st.write(
-        'Одна модель может ошибиться, особенно на редких отказах. '
-        'Поэтому поверх модели добавлены правила безопасности.'
-    )
-
-    st.markdown('''
-- до модели проверяются очевидные опасные значения
-- после модели проверяется уверенность прогноза
-- затем параметры сравниваются с физическими признаками риска
-- если риск есть, авто-решение блокируется
-    ''')
-
-    st.write(
-        'Главная идея: станок продолжает работу автоматически только тогда, '
-        'когда модель уверена и параметры выглядят безопасно.'
-    )
-
-    st.subheader('Ограничения')
-
-    st.markdown('''
-- данные синтетические
-- на реальном станке распределения могут отличаться
-- пороги нужно настраивать под реальную цену ошибок
-    ''')
-
-    st.subheader('Защита от ошибок модели')
-
-    st.write(
-        'Даже если модель ошибается, контур проверяет результат несколькими способами. '
-        'Это снижает риск пропустить отказ.'
-    )
-

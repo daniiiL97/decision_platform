@@ -1,0 +1,656 @@
+{
+    "uid": "785aaddb-5132-4298-a16a-7639efd5d5a6",
+    "name": "1_Linear",
+    "preprocessing": [
+        {
+            "scale": [
+                {
+                    "scale": [
+                        105.82459007838625,
+                        84.83551424780642,
+                        63.60373722934786,
+                        22.238438394827725,
+                        6.1169069639289635,
+                        79.48499566933864,
+                        82.15438833304368,
+                        60.971946554639736
+                    ],
+                    "mean": [
+                        284.2451388888889,
+                        69.09565972222222,
+                        55.244791666666664,
+                        180.93090277777776,
+                        6.417013888888889,
+                        974.4215277777779,
+                        775.4888888888888,
+                        45.57118055555556
+                    ],
+                    "var": [
+                        11198.843865258486,
+                        7197.064477689766,
+                        4045.4353895399304,
+                        494.54814224054786,
+                        37.416550805362654,
+                        6317.864536554784,
+                        6749.343522376544,
+                        3717.5782666618447
+                    ],
+                    "n_samples_seen": 576,
+                    "n_features_in": 8,
+                    "columns": [
+                        "CEMENT",
+                        "BLAST_FURNACE_SLAG",
+                        "FLY_ASH",
+                        "WATER",
+                        "SUPERPLASTICIZER",
+                        "COARSE_AGGREGATE",
+                        "FINE_AGGREGATE",
+                        "AGE"
+                    ],
+                    "scale_method": "scale_normal"
+                }
+            ],
+            "scale_y": {
+                "scale": [
+                    16.065133797995042
+                ],
+                "mean": [
+                    35.83677083333334
+                ],
+                "var": [
+                    258.0885239474826
+                ],
+                "n_samples_seen": 576,
+                "n_features_in": 1,
+                "columns": [
+                    "target"
+                ],
+                "scale_method": "scale_normal"
+            },
+            "ml_task": "regression",
+            "params": {
+                "columns_preprocessing": {
+                    "CEMENT": [
+                        "scale_normal"
+                    ],
+                    "BLAST_FURNACE_SLAG": [
+                        "scale_normal"
+                    ],
+                    "FLY_ASH": [
+                        "scale_normal"
+                    ],
+                    "WATER": [
+                        "scale_normal"
+                    ],
+                    "SUPERPLASTICIZER": [
+                        "scale_normal"
+                    ],
+                    "COARSE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "FINE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "AGE": [
+                        "scale_normal"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "scale_normal"
+                ],
+                "ml_task": "regression"
+            }
+        },
+        {
+            "scale": [
+                {
+                    "scale": [
+                        105.7631735744943,
+                        87.33947642413263,
+                        63.500520007196904,
+                        21.628937968242138,
+                        6.024588249851346,
+                        80.33311634841675,
+                        80.38526067504597,
+                        59.97540929658764
+                    ],
+                    "mean": [
+                        281.32708333333335,
+                        73.58211805555555,
+                        53.62569444444445,
+                        181.08506944444446,
+                        6.344444444444445,
+                        972.1156250000001,
+                        777.1522569444444,
+                        44.923611111111114
+                    ],
+                    "var": [
+                        11185.84888454861,
+                        7628.1841420416185,
+                        4032.3160411844146,
+                        467.81095763406626,
+                        36.29566358024691,
+                        6453.409582248263,
+                        6461.790133795092,
+                        3597.049720293211
+                    ],
+                    "n_samples_seen": 576,
+                    "n_features_in": 8,
+                    "columns": [
+                        "CEMENT",
+                        "BLAST_FURNACE_SLAG",
+                        "FLY_ASH",
+                        "WATER",
+                        "SUPERPLASTICIZER",
+                        "COARSE_AGGREGATE",
+                        "FINE_AGGREGATE",
+                        "AGE"
+                    ],
+                    "scale_method": "scale_normal"
+                }
+            ],
+            "scale_y": {
+                "scale": [
+                    16.32467381921671
+                ],
+                "mean": [
+                    35.732708333333335
+                ],
+                "var": [
+                    266.49497530381944
+                ],
+                "n_samples_seen": 576,
+                "n_features_in": 1,
+                "columns": [
+                    "target"
+                ],
+                "scale_method": "scale_normal"
+            },
+            "ml_task": "regression",
+            "params": {
+                "columns_preprocessing": {
+                    "CEMENT": [
+                        "scale_normal"
+                    ],
+                    "BLAST_FURNACE_SLAG": [
+                        "scale_normal"
+                    ],
+                    "FLY_ASH": [
+                        "scale_normal"
+                    ],
+                    "WATER": [
+                        "scale_normal"
+                    ],
+                    "SUPERPLASTICIZER": [
+                        "scale_normal"
+                    ],
+                    "COARSE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "FINE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "AGE": [
+                        "scale_normal"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "scale_normal"
+                ],
+                "ml_task": "regression"
+            }
+        },
+        {
+            "scale": [
+                {
+                    "scale": [
+                        104.61268204000947,
+                        85.71248250188418,
+                        63.558345533190796,
+                        21.48583854372538,
+                        6.040291627429608,
+                        79.65400485150803,
+                        81.51142962167148,
+                        62.749059215163676
+                    ],
+                    "mean": [
+                        280.5803819444444,
+                        74.99444444444445,
+                        51.91076388888889,
+                        180.97413194444445,
+                        6.257118055555555,
+                        975.1600694444444,
+                        775.4491319444445,
+                        47.00347222222222
+                    ],
+                    "var": [
+                        10943.81324360412,
+                        7346.629656635802,
+                        4039.663286916474,
+                        461.64125792703504,
+                        36.48512294439622,
+                        6344.760488884066,
+                        6644.113158968703,
+                        3937.444432388117
+                    ],
+                    "n_samples_seen": 576,
+                    "n_features_in": 8,
+                    "columns": [
+                        "CEMENT",
+                        "BLAST_FURNACE_SLAG",
+                        "FLY_ASH",
+                        "WATER",
+                        "SUPERPLASTICIZER",
+                        "COARSE_AGGREGATE",
+                        "FINE_AGGREGATE",
+                        "AGE"
+                    ],
+                    "scale_method": "scale_normal"
+                }
+            ],
+            "scale_y": {
+                "scale": [
+                    16.846179028420384
+                ],
+                "mean": [
+                    36.27475694444444
+                ],
+                "var": [
+                    283.7937478575907
+                ],
+                "n_samples_seen": 576,
+                "n_features_in": 1,
+                "columns": [
+                    "target"
+                ],
+                "scale_method": "scale_normal"
+            },
+            "ml_task": "regression",
+            "params": {
+                "columns_preprocessing": {
+                    "CEMENT": [
+                        "scale_normal"
+                    ],
+                    "BLAST_FURNACE_SLAG": [
+                        "scale_normal"
+                    ],
+                    "FLY_ASH": [
+                        "scale_normal"
+                    ],
+                    "WATER": [
+                        "scale_normal"
+                    ],
+                    "SUPERPLASTICIZER": [
+                        "scale_normal"
+                    ],
+                    "COARSE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "FINE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "AGE": [
+                        "scale_normal"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "scale_normal"
+                ],
+                "ml_task": "regression"
+            }
+        },
+        {
+            "scale": [
+                {
+                    "scale": [
+                        108.06198653437994,
+                        85.15267714783649,
+                        64.45858669596618,
+                        21.96079073124687,
+                        5.966300214631274,
+                        80.57533487248817,
+                        83.35166933691251,
+                        57.943199956299736
+                    ],
+                    "mean": [
+                        282.90052083333336,
+                        72.56597222222223,
+                        54.0689236111111,
+                        180.88211805555557,
+                        6.290798611111111,
+                        974.681076388889,
+                        774.7458333333333,
+                        44.13368055555556
+                    ],
+                    "var": [
+                        11677.392933756511,
+                        7250.978425443674,
+                        4154.909398841387,
+                        482.2763295416184,
+                        35.59673825110919,
+                        6492.384589813608,
+                        6947.500781250001,
+                        3357.4144211757334
+                    ],
+                    "n_samples_seen": 576,
+                    "n_features_in": 8,
+                    "columns": [
+                        "CEMENT",
+                        "BLAST_FURNACE_SLAG",
+                        "FLY_ASH",
+                        "WATER",
+                        "SUPERPLASTICIZER",
+                        "COARSE_AGGREGATE",
+                        "FINE_AGGREGATE",
+                        "AGE"
+                    ],
+                    "scale_method": "scale_normal"
+                }
+            ],
+            "scale_y": {
+                "scale": [
+                    16.540091162165027
+                ],
+                "mean": [
+                    35.93711805555555
+                ],
+                "var": [
+                    273.57461565272956
+                ],
+                "n_samples_seen": 576,
+                "n_features_in": 1,
+                "columns": [
+                    "target"
+                ],
+                "scale_method": "scale_normal"
+            },
+            "ml_task": "regression",
+            "params": {
+                "columns_preprocessing": {
+                    "CEMENT": [
+                        "scale_normal"
+                    ],
+                    "BLAST_FURNACE_SLAG": [
+                        "scale_normal"
+                    ],
+                    "FLY_ASH": [
+                        "scale_normal"
+                    ],
+                    "WATER": [
+                        "scale_normal"
+                    ],
+                    "SUPERPLASTICIZER": [
+                        "scale_normal"
+                    ],
+                    "COARSE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "FINE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "AGE": [
+                        "scale_normal"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "scale_normal"
+                ],
+                "ml_task": "regression"
+            }
+        },
+        {
+            "scale": [
+                {
+                    "scale": [
+                        108.5728014361101,
+                        87.38924878078045,
+                        64.03878131353405,
+                        21.998561863330607,
+                        6.154285609306592,
+                        79.7772477858993,
+                        83.33366163997829,
+                        59.40565931947981
+                    ],
+                    "mean": [
+                        284.57465277777777,
+                        72.84444444444445,
+                        53.64704861111111,
+                        181.30902777777777,
+                        6.332986111111111,
+                        971.9342013888888,
+                        774.5145833333333,
+                        45.451388888888886
+                    ],
+                    "var": [
+                        11788.053211684992,
+                        7636.880802469137,
+                        4100.965512122637,
+                        483.93672405478384,
+                        37.87523136091821,
+                        6364.409264292775,
+                        6944.499162326389,
+                        3529.0323591820984
+                    ],
+                    "n_samples_seen": 576,
+                    "n_features_in": 8,
+                    "columns": [
+                        "CEMENT",
+                        "BLAST_FURNACE_SLAG",
+                        "FLY_ASH",
+                        "WATER",
+                        "SUPERPLASTICIZER",
+                        "COARSE_AGGREGATE",
+                        "FINE_AGGREGATE",
+                        "AGE"
+                    ],
+                    "scale_method": "scale_normal"
+                }
+            ],
+            "scale_y": {
+                "scale": [
+                    16.59640991093148
+                ],
+                "mean": [
+                    36.22142361111111
+                ],
+                "var": [
+                    275.4408219316647
+                ],
+                "n_samples_seen": 576,
+                "n_features_in": 1,
+                "columns": [
+                    "target"
+                ],
+                "scale_method": "scale_normal"
+            },
+            "ml_task": "regression",
+            "params": {
+                "columns_preprocessing": {
+                    "CEMENT": [
+                        "scale_normal"
+                    ],
+                    "BLAST_FURNACE_SLAG": [
+                        "scale_normal"
+                    ],
+                    "FLY_ASH": [
+                        "scale_normal"
+                    ],
+                    "WATER": [
+                        "scale_normal"
+                    ],
+                    "SUPERPLASTICIZER": [
+                        "scale_normal"
+                    ],
+                    "COARSE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "FINE_AGGREGATE": [
+                        "scale_normal"
+                    ],
+                    "AGE": [
+                        "scale_normal"
+                    ]
+                },
+                "target_preprocessing": [
+                    "na_exclude",
+                    "scale_normal"
+                ],
+                "ml_task": "regression"
+            }
+        }
+    ],
+    "learners": [
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Linear Regression",
+            "algorithm_short_name": "Linear",
+            "uid": "29d222bb-4574-4e4f-b806-95ef0f85b24e",
+            "params": {
+                "model_type": "Linear",
+                "ml_task": "regression",
+                "n_jobs": -1,
+                "seed": 43,
+                "explain_level": 1
+            },
+            "name": "learner_fold_0"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Linear Regression",
+            "algorithm_short_name": "Linear",
+            "uid": "f5ec8883-04f6-469c-8cca-0ec3fad64d84",
+            "params": {
+                "model_type": "Linear",
+                "ml_task": "regression",
+                "n_jobs": -1,
+                "seed": 43,
+                "explain_level": 1
+            },
+            "name": "learner_fold_1"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Linear Regression",
+            "algorithm_short_name": "Linear",
+            "uid": "0beb6f36-75bf-45fe-b0d1-3bc4b494abf6",
+            "params": {
+                "model_type": "Linear",
+                "ml_task": "regression",
+                "n_jobs": -1,
+                "seed": 43,
+                "explain_level": 1
+            },
+            "name": "learner_fold_2"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Linear Regression",
+            "algorithm_short_name": "Linear",
+            "uid": "eb854174-3aba-4fb5-a06e-f1c0b5f576dd",
+            "params": {
+                "model_type": "Linear",
+                "ml_task": "regression",
+                "n_jobs": -1,
+                "seed": 43,
+                "explain_level": 1
+            },
+            "name": "learner_fold_3"
+        },
+        {
+            "library_version": "1.6.1",
+            "algorithm_name": "Linear Regression",
+            "algorithm_short_name": "Linear",
+            "uid": "80440918-65ae-4976-804c-9a863c987899",
+            "params": {
+                "model_type": "Linear",
+                "ml_task": "regression",
+                "n_jobs": -1,
+                "seed": 43,
+                "explain_level": 1
+            },
+            "name": "learner_fold_4"
+        }
+    ],
+    "params": {
+        "additional": {
+            "max_steps": 1,
+            "max_rows_limit": null,
+            "max_cols_limit": null
+        },
+        "preprocessing": {
+            "columns_preprocessing": {
+                "CEMENT": [
+                    "scale_normal"
+                ],
+                "BLAST_FURNACE_SLAG": [
+                    "scale_normal"
+                ],
+                "FLY_ASH": [
+                    "scale_normal"
+                ],
+                "WATER": [
+                    "scale_normal"
+                ],
+                "SUPERPLASTICIZER": [
+                    "scale_normal"
+                ],
+                "COARSE_AGGREGATE": [
+                    "scale_normal"
+                ],
+                "FINE_AGGREGATE": [
+                    "scale_normal"
+                ],
+                "AGE": [
+                    "scale_normal"
+                ]
+            },
+            "target_preprocessing": [
+                "na_exclude",
+                "scale_normal"
+            ],
+            "ml_task": "regression"
+        },
+        "validation_strategy": {
+            "validation_type": "kfold",
+            "k_folds": 5,
+            "shuffle": true,
+            "random_seed": 42,
+            "X_path": "models/AutoML_Concrete_Strength/X.data",
+            "y_path": "models/AutoML_Concrete_Strength/y.data",
+            "results_path": "models/AutoML_Concrete_Strength"
+        },
+        "learner": {
+            "model_type": "Linear",
+            "ml_task": "regression",
+            "n_jobs": -1,
+            "seed": 43,
+            "explain_level": 1
+        },
+        "automl_random_state": 42,
+        "ml_task": "regression",
+        "explain_level": 1,
+        "name": "1_Linear",
+        "status": "initialized",
+        "final_loss": null,
+        "train_time": null,
+        "data_type": "original",
+        "max_time_for_learner": 60
+    },
+    "saved": [
+        "1_Linear/learner_fold_0.linear",
+        "1_Linear/learner_fold_1.linear",
+        "1_Linear/learner_fold_2.linear",
+        "1_Linear/learner_fold_3.linear",
+        "1_Linear/learner_fold_4.linear"
+    ],
+    "predictions_fname": "1_Linear/predictions_out_of_folds.csv",
+    "metric_name": "rmse",
+    "final_loss": "10.442170397965743",
+    "train_time": 21.06256103515625,
+    "is_stacked": false,
+    "joblib_version": "1.5.3"
+}

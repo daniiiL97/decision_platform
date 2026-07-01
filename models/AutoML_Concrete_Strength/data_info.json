@@ -1,0 +1,48 @@
+{
+    "columns": [
+        "CEMENT",
+        "BLAST_FURNACE_SLAG",
+        "FLY_ASH",
+        "WATER",
+        "SUPERPLASTICIZER",
+        "COARSE_AGGREGATE",
+        "FINE_AGGREGATE",
+        "AGE"
+    ],
+    "rows": 720,
+    "cols": 8,
+    "target_is_numeric": true,
+    "columns_info": {
+        "CEMENT": [
+            "scale"
+        ],
+        "BLAST_FURNACE_SLAG": [
+            "scale"
+        ],
+        "FLY_ASH": [
+            "scale"
+        ],
+        "WATER": [
+            "scale"
+        ],
+        "SUPERPLASTICIZER": [
+            "scale"
+        ],
+        "COARSE_AGGREGATE": [
+            "scale"
+        ],
+        "FINE_AGGREGATE": [
+            "scale"
+        ],
+        "AGE": [
+            "scale"
+        ]
+    },
+    "columns_values": {},
+    "target_info": [
+        "scale"
+    ],
+    "n_features": 8,
+    "is_sample_weighted": false,
+    "is_fairness_applied": false
+}
