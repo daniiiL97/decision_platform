@@ -1233,19 +1233,6 @@ except Exception as error:
 
 initialise_state()
 
-if (
-        "last_result" not in st.session_state
-        and not st.session_state.get("hide_result_after_reset", False)
-):
-    st.session_state.last_result = run_pipeline(
-        inputs=get_inputs_from_state(),
-        config=config,
-        model=model,
-        required_strength=float(st.session_state.required_strength_input),
-        safety_margin=float(st.session_state.safety_margin_input),
-        composition_profile=st.session_state.composition_profile,
-    )
-
 st.title("Система контроля качества бетонной смеси")
 st.caption("Учебная демонстрация контура принятия решений")
 
