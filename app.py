@@ -1,11 +1,3 @@
-"""
-Система контроля качества бетонной смеси.
-
-Модель оценивает прочность бетона на сжатие по составу смеси и возрасту образца.
-Система сопоставляет прогнозный интервал с технологическими границами и предлагает
-дальнейшее действие.
-"""
-
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -153,24 +145,22 @@ COMPOSITION_PROFILES = {
 }
 
 
+# Загружает сохранённую модель AutoML.
 @st.cache_resource(show_spinner="Загрузка модели")
 def load_model():
     return AutoML(results_path=str(MODEL_DIR))
 
 
+# Загружает конфигурацию модели из файла.
 @st.cache_data
 def load_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as file:
         return json.load(file)
 
 
+# Ищет таблицу с важностью признаков в папке модели.
 @st.cache_data(show_spinner=False)
 def load_global_feature_importance(model_dir_text):
-    """Ищет экспорт глобальной важности признаков в результатах AutoML.
-
-    Формат файлов зависит от версии mljar-supervised, поэтому функция проверяет
-    несколько типовых названий колонок и не создаёт искусственные значения.
-    """
     model_dir = Path(model_dir_text)
 
     if not model_dir.exists():
@@ -197,26 +187,27 @@ def load_global_feature_importance(model_dir_text):
             (
                 normalized[name]
                 for name in [
-                "feature",
-                "feature_name",
-                "variable",
-                "column",
-                "name",
-            ]
+                    "feature",
+                    "feature_name",
+                    "variable",
+                    "column",
+                    "name",
+                ]
                 if name in normalized
             ),
             None,
         )
+
         importance_column = next(
             (
                 normalized[name]
                 for name in [
-                "importance",
-                "mean_importance",
-                "permutation_importance",
-                "weight",
-                "value",
-            ]
+                    "importance",
+                    "mean_importance",
+                    "permutation_importance",
+                    "weight",
+                    "value",
+                ]
                 if name in normalized
             ),
             None,
@@ -258,6 +249,7 @@ def load_global_feature_importance(model_dir_text):
     return best_candidate.reset_index(drop=True)
 
 
+# Проверяет, подходит ли конфигурация для приложения.
 def validate_config(config):
     required_keys = {
         "feature_columns",
@@ -279,20 +271,24 @@ def validate_config(config):
         )
 
     missing_stats = set(BASE_INPUT_COLUMNS).difference(config["feature_stats"])
+
     if missing_stats:
         raise ValueError(
             "В config.json отсутствуют диапазоны " + ", ".join(sorted(missing_stats))
         )
 
     radius = float(config["prediction_interval"].get("radius", 0))
+
     if not np.isfinite(radius) or radius <= 0:
         raise ValueError("В config.json указан некорректный радиус интервала.")
 
 
+# Удаляет текущий результат расчёта.
 def clear_last_result():
     st.session_state.pop("last_result", None)
 
 
+# Создаёт состав по выбранному профилю.
 def composition_from_profile(profile_name):
     rng = np.random.default_rng()
     composition = {}
@@ -305,6 +301,7 @@ def composition_from_profile(profile_name):
     return composition
 
 
+# Создаёт случайный состав в пределах обучающих данных.
 def composition_from_training_ranges(config):
     rng = np.random.default_rng()
     composition = {}
@@ -321,17 +318,21 @@ def composition_from_training_ranges(config):
     return composition
 
 
+# Сохраняет состав в состоянии приложения.
 def set_composition(composition):
     for feature, value in composition.items():
         st.session_state[f"input_{feature}"] = float(value)
+
     clear_last_result()
 
 
+# Создаёт начальные значения формы.
 def initialise_state():
     if "composition_profile" not in st.session_state:
         st.session_state.composition_profile = next(iter(COMPOSITION_PROFILES))
 
     first_input_key = f"input_{BASE_INPUT_COLUMNS[0]}"
+
     if first_input_key not in st.session_state:
         set_composition(
             composition_from_profile(st.session_state.composition_profile)
@@ -344,11 +345,8 @@ def initialise_state():
         st.session_state.safety_margin_input = 2.0
 
 
+# Возвращает форму к исходным значениям.
 def reset_application_state():
-    """Возвращает форму к стартовым значениям и очищает текущий расчёт.
-
-    Журнал решений не удаляется, потому что это история уже выполненных расчётов.
-    """
     keys_to_reset = [
         "composition_profile",
         "required_strength_input",
@@ -363,12 +361,11 @@ def reset_application_state():
     for key in keys_to_reset:
         st.session_state.pop(key, None)
 
-    # После сброса не выполняем стартовый расчёт автоматически.
-    # Поэтому нижний блок с результатом и восемью шагами исчезает.
     st.session_state["hide_result_after_reset"] = True
     initialise_state()
 
 
+# Собирает значения состава из состояния.
 def get_inputs_from_state():
     return {
         feature: float(st.session_state[f"input_{feature}"])
@@ -376,10 +373,12 @@ def get_inputs_from_state():
     }
 
 
+# Форматирует число для интерфейса.
 def format_number(value):
     return f"{value:.0f}" if abs(value) >= 100 else f"{value:.1f}"
 
 
+# Определяет допустимые границы ползунка.
 def slider_bounds(feature, config):
     stats = config["feature_stats"][feature]
     max_train = float(stats["max"])
@@ -391,6 +390,7 @@ def slider_bounds(feature, config):
     return 0.0, float(max_input)
 
 
+# Проверяет корректность введённых значений.
 def step1_validate(inputs):
     errors = []
 
@@ -411,8 +411,8 @@ def step1_validate(inputs):
     return {"ok": not errors, "errors": errors}
 
 
+# Проверяет физические ограничения и диапазоны обучения.
 def step2_checks(inputs, config):
-    """Разделяет физические запреты и предупреждения о выходе за обучающий диапазон."""
     hard_rules = []
     range_warnings = []
 
@@ -444,6 +444,7 @@ def step2_checks(inputs, config):
     return hard_rules, range_warnings
 
 
+# Рассчитывает прогноз прочности модели.
 def step4_predict(model, inputs, feature_columns):
     model_input = pd.DataFrame([
         {feature: inputs[feature] for feature in feature_columns}
@@ -451,6 +452,7 @@ def step4_predict(model, inputs, feature_columns):
     return float(model.predict(model_input)[0])
 
 
+# Сравнивает прогноз с технологическими границами.
 def step5_compare_with_policy(
         prediction,
         interval_radius,
@@ -492,6 +494,7 @@ def step5_compare_with_policy(
     }
 
 
+# Выбирает действие по результату оценки.
 def step6_choose_action(assessment):
     if assessment["status"] == "confident_pass":
         return {
@@ -499,7 +502,8 @@ def step6_choose_action(assessment):
             "title": "Рекомендовать состав для выполнения опытного замеса",
             "message": (
                 "Весь расчётный диапазон выше границы рекомендации. "
-                "Состав можно использовать для выполнения опытного замеса и подтверждающего лабораторного испытания."
+                "Состав можно использовать для выполнения опытного замеса и "
+                "подтверждающего лабораторного испытания."
             ),
             "severity": "success",
         }
@@ -526,11 +530,13 @@ def step6_choose_action(assessment):
     }
 
 
+# Добавляет запись в журнал решений.
 def step8_log(record):
     with open(LOG_PATH, "a", encoding="utf-8") as file:
         file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
+# Выполняет полный расчёт состава.
 def run_pipeline(
         inputs,
         config,
@@ -588,12 +594,14 @@ def run_pipeline(
 
     prediction = step4_predict(model, inputs, config["feature_columns"])
     interval_radius = float(config["prediction_interval"]["radius"])
+
     assessment = step5_compare_with_policy(
         prediction=prediction,
         interval_radius=interval_radius,
         required_strength=required_strength,
         safety_margin=safety_margin,
     )
+
     action = step6_choose_action(assessment)
 
     record = {
@@ -611,12 +619,13 @@ def run_pipeline(
         "action": action,
         "feedback": None,
     }
+
     step8_log(record)
     return record
 
 
+# Создаёт один состав выбранного профиля.
 def sample_composition(profile_name, rng):
-    """Создаёт один состав из диапазонов выбранного учебного профиля."""
     composition = {}
 
     for feature, (low, high) in COMPOSITION_PROFILES[profile_name]["ranges"].items():
@@ -627,6 +636,7 @@ def sample_composition(profile_name, rng):
     return composition
 
 
+# Подбирает состав для выбранной зоны решения.
 def find_scenario_composition(
         model,
         config,
@@ -635,12 +645,6 @@ def find_scenario_composition(
         target_status,
         max_attempts=120,
 ):
-    """Подбирает учебный пример по фактическому расчёту текущей модели.
-
-    Не предполагает заранее, в какую зону попадёт состав. Проверка идёт
-    через ту же модель и те же границы, что используются в интерфейсе.
-    Количество попыток ограничено, чтобы кнопка оставалась отзывчивой.
-    """
     profiles_by_status = {
         "confident_fail": [
             "Состав с минеральными добавками",
@@ -663,6 +667,7 @@ def find_scenario_composition(
         for _ in range(max_attempts):
             composition = sample_composition(profile_name, rng)
             prediction = step4_predict(model, composition, config["feature_columns"])
+
             assessment = step5_compare_with_policy(
                 prediction=prediction,
                 interval_radius=float(config["prediction_interval"]["radius"]),
@@ -676,8 +681,8 @@ def find_scenario_composition(
     return None, None
 
 
+# Создаёт пример с нулевым количеством воды.
 def build_no_water_scenario():
-    """Создаёт намеренно некорректный набор для демонстрации ранней проверки."""
     return {
         "CEMENT": 340.0,
         "BLAST_FURNACE_SLAG": 0.0,
@@ -690,6 +695,7 @@ def build_no_water_scenario():
     }
 
 
+# Применяет состав и запускает расчёт.
 def apply_and_calculate_scenario(
         composition,
         profile_name,
@@ -699,6 +705,7 @@ def apply_and_calculate_scenario(
         safety_margin,
 ):
     set_composition(composition)
+
     st.session_state.last_result = run_pipeline(
         inputs=composition,
         config=config,
@@ -709,6 +716,7 @@ def apply_and_calculate_scenario(
     )
 
 
+# Преобразует строку в дату и время.
 def parse_timestamp(value):
     try:
         return datetime.fromisoformat(value)
@@ -716,6 +724,7 @@ def parse_timestamp(value):
         return None
 
 
+# Читает актуальные записи журнала.
 def read_log():
     if not LOG_PATH.exists():
         return []
@@ -733,6 +742,7 @@ def read_log():
                 continue
 
             timestamp = parse_timestamp(record.get("timestamp"))
+
             if timestamp is not None and timestamp < cutoff:
                 rewrite_file = True
                 continue
@@ -747,6 +757,7 @@ def read_log():
     return records
 
 
+# Сохраняет обратную связь по расчёту.
 def update_feedback(timestamp, feedback):
     records = read_log()
 
@@ -759,6 +770,7 @@ def update_feedback(timestamp, feedback):
             file.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
 
 
+# Показывает выбранное действие.
 def render_action(action):
     if action["severity"] == "success":
         st.success(f"**{action['title']}**\n\n{action['message']}")
@@ -768,6 +780,7 @@ def render_action(action):
         st.error(f"**{action['title']}**\n\n{action['message']}")
 
 
+# Показывает прогноз на шкале зон решения.
 def render_zone_visual(
         required_strength,
         automatic_threshold,
@@ -776,11 +789,11 @@ def render_zone_visual(
         upper,
         active_status,
 ):
-    """Показывает три различимые зоны и положение текущего прогноза."""
     scale_min = max(
         0.0,
         min(required_strength - 15.0, lower - 5.0, prediction - 5.0),
     )
+
     scale_max = max(
         automatic_threshold + 15.0,
         upper + 5.0,
@@ -793,7 +806,6 @@ def render_zone_visual(
     fig = go.Figure()
     zone_y0, zone_y1 = 0.40, 0.60
 
-    # Цвета подобраны так, чтобы зоны читались и на тёмном фоне.
     zones = [
         (scale_min, required_strength, "#B42318"),
         (required_strength, automatic_threshold, "#B54708"),
@@ -812,7 +824,6 @@ def render_zone_visual(
             line_width=0,
         )
 
-    # Белая полоса — 90% интервал, ромб — точечный прогноз.
     fig.add_trace(
         go.Scatter(
             x=[lower, upper],
@@ -847,6 +858,7 @@ def render_zone_visual(
         line_color="#FFFFFF",
         line_width=2,
     )
+
     fig.add_vline(
         x=automatic_threshold,
         line_dash="dash",
@@ -870,6 +882,7 @@ def render_zone_visual(
         hovermode="x",
         font=dict(color="#D1D5DB"),
     )
+
     fig.update_xaxes(
         title="Прочность бетона, МПа",
         range=[scale_min, scale_max],
@@ -878,6 +891,7 @@ def render_zone_visual(
         tickfont=dict(color="#D1D5DB"),
         title_font=dict(color="#D1D5DB"),
     )
+
     fig.update_yaxes(
         range=[0, 1],
         visible=False,
@@ -918,6 +932,7 @@ def render_zone_visual(
     ]
 
     columns = st.columns(3)
+
     for column, card in zip(columns, cards):
         is_active = card["key"] == active_status
         outline = f"3px solid {card['border']}" if is_active else "1px solid #3F4654"
@@ -961,6 +976,7 @@ def render_zone_visual(
     )
 
 
+# Показывает важность основных признаков.
 def render_global_feature_importance():
     importance = load_global_feature_importance(str(MODEL_DIR))
 
@@ -978,6 +994,7 @@ def render_global_feature_importance():
             {"short": feature},
         )["short"]
     )
+
     display = display[["Параметр", "importance"]].head(3)
     display = display.rename(columns={"importance": "Важность"})
 
@@ -985,6 +1002,7 @@ def render_global_feature_importance():
     st.dataframe(display, width="stretch", hide_index=True)
 
 
+# Показывает этапы выполненного расчёта.
 def render_pipeline_trace(result, config):
     with st.expander("Расчёты по 8 шагам системы", expanded=True):
         st.markdown("### Шаг 1. Проверка входных данных")
@@ -1005,10 +1023,12 @@ def render_pipeline_trace(result, config):
             }
             for feature in BASE_INPUT_COLUMNS
         ])
+
         st.dataframe(input_rows, width="stretch", hide_index=True)
 
         if not result["validation"]["ok"]:
             st.error("Во входных данных есть ошибки.")
+
             for error in result["validation"]["errors"]:
                 st.write(f"• {error}")
 
@@ -1029,6 +1049,7 @@ def render_pipeline_trace(result, config):
         )
 
         range_rows = []
+
         for feature in BASE_INPUT_COLUMNS:
             stats = config["feature_stats"][feature]
             value = float(result["input"][feature])
@@ -1047,6 +1068,7 @@ def render_pipeline_trace(result, config):
 
         if result.get("hard_rules"):
             st.warning("Расчёт модели остановлен.")
+
             for rule in result["hard_rules"]:
                 st.write(f"• {rule}")
 
@@ -1062,6 +1084,7 @@ def render_pipeline_trace(result, config):
                 "Расчёт выполнен с предупреждением. Часть параметров выходит "
                 "за диапазон обучающих данных."
             )
+
             for warning in result["range_warnings"]:
                 st.write(f"• {warning}")
         else:
@@ -1072,10 +1095,12 @@ def render_pipeline_trace(result, config):
             "Формируется одна строка из восьми исходных параметров. "
             "Новые признаки и скрытые правила не добавляются."
         )
+
         model_input = pd.DataFrame([{
             FEATURE_INFO[feature]["short"]: result["input"][feature]
             for feature in BASE_INPUT_COLUMNS
         }])
+
         st.dataframe(model_input, width="stretch", hide_index=True)
 
         st.markdown("### Шаг 4. Расчёт прогнозной прочности")
@@ -1083,6 +1108,7 @@ def render_pipeline_trace(result, config):
             "AutoML-модель получает входной вектор и возвращает оценку прочности "
             "на сжатие к заданному возрасту образца."
         )
+
         prediction = float(result["prediction"])
         st.code(f"ŷ = model(X) = {prediction:.1f} МПа", language="text")
         st.success(f"Прогнозная прочность составляет {prediction:.1f} МПа.")
@@ -1117,6 +1143,7 @@ def render_pipeline_trace(result, config):
                 "Результат": f"{automatic:.1f} МПа",
             },
         ])
+
         st.dataframe(calculations, width="stretch", hide_index=True)
 
         upper_below_required = upper < required
@@ -1134,6 +1161,7 @@ def render_pipeline_trace(result, config):
                 "Результат": "да" if lower_above_automatic else "нет",
             },
         ])
+
         st.dataframe(checks, width="stretch", hide_index=True)
         st.success(f"Итог. {result['assessment']['reason']}")
 
@@ -1170,6 +1198,7 @@ def render_pipeline_trace(result, config):
             "В журнал сохраняются состав смеси, прогноз, технологические границы, "
             "действие и оценка пользователя."
         )
+
         st.code(
             f"timestamp = {result['timestamp']}\n"
             f"action = {result['action']['code']}\n"
@@ -1177,6 +1206,7 @@ def render_pipeline_trace(result, config):
             f"required_strength = {required:.1f} МПа",
             language="text",
         )
+
         st.success("Запись сохранена в журнале.")
 
 
@@ -1203,8 +1233,6 @@ except Exception as error:
 
 initialise_state()
 
-# При первом открытии показываем стартовый пример.
-# После ручного сброса расчёт не создаётся автоматически.
 if (
         "last_result" not in st.session_state
         and not st.session_state.get("hide_result_after_reset", False)
@@ -1237,6 +1265,7 @@ with st.sidebar:
         key="composition_profile",
         help="Типовой состав задаёт стартовые значения компонентов.",
     )
+
     st.caption(
         COMPOSITION_PROFILES[st.session_state.composition_profile]["description"]
     )
@@ -1303,6 +1332,7 @@ with st.sidebar:
             key="cost_miss_input",
             help="Условная стоимость пропуска недостаточной прочности.",
         )
+
         cost_test = st.number_input(
             "Лишнее лабораторное испытание",
             min_value=1,
@@ -1311,7 +1341,9 @@ with st.sidebar:
             key="cost_test_input",
             help="Условная стоимость дополнительной проверки нормального состава.",
         )
+
         ratio = cost_miss / cost_test
+
         st.caption(
             f"Соотношение равно 1 к {ratio:.0f}. Чем оно больше, тем разумнее "
             "увеличивать запас для автоматической рекомендации."
@@ -1324,7 +1356,6 @@ main_tab, about_tab, journal_tab = st.tabs([
 ])
 
 with main_tab:
-    # Эти значения нужны учебным сценариям до ручного изменения состава.
     required_strength = float(st.session_state.required_strength_input)
     safety_margin = float(st.session_state.safety_margin_input)
 
@@ -1337,7 +1368,7 @@ with main_tab:
 
     scenario_1, scenario_2, scenario_3, scenario_4 = st.columns(4)
 
-
+    # Подбирает и применяет учебный сценарий.
     def apply_target_scenario(target_status, title):
         with st.spinner("Подбираем пример по текущей модели и границам решения..."):
             composition, profile_name = find_scenario_composition(
@@ -1364,7 +1395,6 @@ with main_tab:
             safety_margin=safety_margin,
         )
 
-
     with scenario_1:
         if st.button("Показать красную зону", width="stretch"):
             apply_target_scenario("confident_fail", "красная зона")
@@ -1380,6 +1410,7 @@ with main_tab:
     with scenario_4:
         if st.button("Показать ошибку ввода", width="stretch"):
             invalid_composition = build_no_water_scenario()
+
             apply_and_calculate_scenario(
                 composition=invalid_composition,
                 profile_name="Ошибка ввода, вода равна 0",
@@ -1397,6 +1428,7 @@ with main_tab:
 
         with left_column:
             st.markdown("**Вяжущие материалы и добавки**")
+
             for feature in [
                 "CEMENT",
                 "BLAST_FURNACE_SLAG",
@@ -1404,6 +1436,7 @@ with main_tab:
                 "SUPERPLASTICIZER",
             ]:
                 min_value, max_value = slider_bounds(feature, config)
+
                 st.slider(
                     FEATURE_INFO[feature]["label"],
                     min_value=float(min_value),
@@ -1416,6 +1449,7 @@ with main_tab:
 
         with right_column:
             st.markdown("**Вода, заполнители и срок твердения**")
+
             for feature in [
                 "WATER",
                 "COARSE_AGGREGATE",
@@ -1423,6 +1457,7 @@ with main_tab:
                 "AGE",
             ]:
                 min_value, max_value = slider_bounds(feature, config)
+
                 st.slider(
                     FEATURE_INFO[feature]["label"],
                     min_value=float(min_value),
@@ -1445,6 +1480,7 @@ with main_tab:
             }
             for feature in BASE_INPUT_COLUMNS
         ])
+
         st.dataframe(
             composition_table,
             width="stretch",
@@ -1458,6 +1494,7 @@ with main_tab:
             "Граница рекомендации",
             f"{required_strength + safety_margin:.1f} МПа",
         )
+
         st.caption(
             "При пересечении границы прогнозным интервалом выбирается "
             "лабораторное испытание."
@@ -1486,19 +1523,23 @@ with main_tab:
 
         if "prediction" in result:
             metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+
             metric_1.metric(
                 "Прогнозная прочность",
                 f"{result['prediction']:.1f} МПа",
             )
+
             metric_2.metric(
                 "90% интервал",
                 f"{result['assessment']['lower']:.1f}–"
                 f"{result['assessment']['upper']:.1f} МПа",
             )
+
             metric_3.metric(
                 "Требование",
                 f"{result['required_strength']:.1f} МПа",
             )
+
             metric_4.metric(
                 "Граница рекомендации",
                 f"{result['assessment']['automatic_threshold']:.1f} МПа",
@@ -1526,6 +1567,7 @@ with main_tab:
         if "prediction" in result:
             with st.expander("Основание для решения", expanded=True):
                 st.write(result["assessment"]["reason"])
+
                 st.caption(
                     "Модель рассчитывает прочность, а технологические границы "
                     "переводят этот расчёт в действие."
@@ -1534,6 +1576,7 @@ with main_tab:
         render_pipeline_trace(result, config)
 
         feedback_left, feedback_right, _ = st.columns([1, 1, 4])
+
         with feedback_left:
             if st.button(
                     "Рекомендация полезна",
@@ -1542,6 +1585,7 @@ with main_tab:
             ):
                 update_feedback(result["timestamp"], "useful")
                 st.toast("Оценка сохранена в журнале")
+
         with feedback_right:
             if st.button(
                     "Нужна корректировка",
@@ -1567,9 +1611,11 @@ with about_tab:
 
     metrics = config.get("test_metrics", {})
     metric_1, metric_2, metric_3, metric_4 = st.columns(4)
+
     metric_1.metric("Средняя ошибка MAE", f"{metrics.get('mae', 0):.2f} МПа")
     metric_2.metric("Ошибка RMSE", f"{metrics.get('rmse', 0):.2f} МПа")
     metric_3.metric("Качество R²", f"{metrics.get('r2', 0):.3f}")
+
     metric_4.metric(
         "Попадание в 90% интервал",
         f"{100 * metrics.get('interval_coverage', 0):.1f}%",
@@ -1646,6 +1692,7 @@ with about_tab:
 
     with st.expander("Почему рядом с прогнозом есть интервал", expanded=False):
         coverage = 100 * float(metrics.get("interval_coverage", 0))
+
         st.write(
             "Ширина интервала рассчитана по ошибкам модели на проверочных данных. "
             f"На отдельной тестовой части фактическая прочность попадала в интервал "
@@ -1733,11 +1780,13 @@ with about_tab:
 
 with journal_tab:
     st.subheader("Журнал решений за последние 24 часа")
+
     st.caption(
         "Это общий демонстрационный журнал для текущего запуска приложения. "
         "Записи могут исчезнуть после перезапуска или обновления хостинга. "
         "Не используйте его как персональное или постоянное хранилище."
     )
+
     st.caption(
         "В производственной системе к таким записям обычно добавляют номер партии, "
         "ответственного технолога и фактический результат испытания."
@@ -1749,8 +1798,10 @@ with journal_tab:
         st.info("Журнал пока пуст.")
     else:
         log_rows = []
+
         for record in records:
             action = record.get("action", {})
+
             log_rows.append({
                 "Время": record.get("timestamp"),
                 "Типовой состав": record.get("composition_profile", "нет данных"),
@@ -1763,21 +1814,34 @@ with journal_tab:
 
         log_df = pd.DataFrame(log_rows)
         total = len(log_df)
+
         lab_count = int(
             (log_df["Действие"] == "Назначить лабораторное испытание").sum()
         )
+
         adjust_count = int(
-            (log_df["Действие"] == "Скорректировать состав перед выполнением опытного замеса").sum()
+            (
+                log_df["Действие"]
+                == "Скорректировать состав перед выполнением опытного замеса"
+            ).sum()
         )
+
         feedback_count = int(log_df["Обратная связь"].notna().sum())
 
         stat_1, stat_2, stat_3, stat_4 = st.columns(4)
+
         stat_1.metric("Всего расчётов", total)
         stat_2.metric("Лабораторный контроль", lab_count)
         stat_3.metric("Корректировка состава", adjust_count)
         stat_4.metric("Есть обратная связь", f"{feedback_count} из {total}")
 
-        st.dataframe(log_df.iloc[::-1], width="stretch", hide_index=True, height=360)
+        st.dataframe(
+            log_df.iloc[::-1],
+            width="stretch",
+            hide_index=True,
+            height=360,
+        )
+
         st.download_button(
             "Скачать журнал",
             data=LOG_PATH.read_bytes(),
